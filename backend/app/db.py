@@ -2,16 +2,24 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/blogdb")
-_client = None
-db = None
+_client = AsyncIOMotorClient(MONGO_URI)
+db_name = "blogdb"
+db = _client[db_name]
+
+# async def init_db():
+#     global _client, db
+#     if _client is None:
+#         _client = AsyncIOMotorClient(MONGO_URI)
+#         #db_name = _client.get_default_database().name if _client.get_default_database() else "blogdb"
+#         db_name = "blogdb"
+#         db = _client[db_name]
 
 async def init_db():
-    global _client, db
-    if _client is None:
-        _client = AsyncIOMotorClient(MONGO_URI)
-        #db_name = _client.get_default_database().name if _client.get_default_database() else "blogdb"
-        db_name = "blogdb"
-        db = _client[db_name]
+    # ensures client is connected (Motor connects lazily; calling server_info forces connection)
+    try:
+        await _client.admin.command("ping")
+    except Exception as e:
+        print("Warning: could not ping MongoDB on startup:", e)
 
 
 # Helper to convert ObjectId -> str responses

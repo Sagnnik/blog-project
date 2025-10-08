@@ -129,7 +129,7 @@ async def change_status(id: str, status: str, admin=Depends(require_admin)):
         raise HTTPException(status_code=400, detail="Invalid id")
     now = datetime.now(timezone.utc)
 
-    update = {"satus": status, "updated_at": now}
+    update = {"status": status, "updated_at": now}
     if status == "published":
         update["published_at"] = now
 
