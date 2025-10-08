@@ -70,7 +70,7 @@ async def create_post(payload: PostCreate, admin=Depends(require_admin)):
     result = await db.posts.insert_one(doc)         # Returns an insertOneResult Object not the doc
     return {"id":str(result.inserted_id)}           # Use .inserted_id to fetch the doc id from insertOneResult object
 
-@router.put("/posts/{id}")
+@router.patch("/posts/{id}")
 async def update_post(id: str, payload: PostUpdate, admin=Depends(require_admin)):
     try:
         oid = ObjectId(id)

@@ -10,6 +10,27 @@ from bson import ObjectId
 
 router = APIRouter()
 
+@router.get("/about")
+async def get_about():
+
+    """
+    Returns the site settings stored in `settings` collection.
+    Document format:
+      {
+        "_id": "site_config",
+        "site_title": "Sagnnik's AI Diaries",
+        "about_html": "<p>About me...</p>",
+        "social": { "twitter": "@you" }
+      }
+    """
+
+    cfg = await db.settings.find_one({"_id": "site_config"}) or {}
+    return {
+        "site_title": cfg.get("site_title", "My Blog"),
+        "about_html": cfg.get("about_html", ""),
+        "social": cfg.get("social", {})
+    }
+
 @router.get("/posts")
 async def list_posts(
     limit: int=10,
@@ -52,5 +73,7 @@ async def get_post_by_id(id: str):
         raise HTTPException(status_code=404, detail="Post Not Found")
     
     return doc_fix_ids(post)
+
+
 
 
