@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 class ImageMeta(BaseModel):
@@ -10,6 +10,8 @@ class ImageMeta(BaseModel):
     alt: Optional[str] = None
     caption: Optional[str] = None
     uploaded_at: datetime
+    used_by_post: bool = False
+    post_id: Optional[str] = None
 
 class PostCreate(BaseModel):
     title: str
@@ -28,7 +30,7 @@ class PostUpdate(PostCreate):
 class PostOut(PostCreate):
     id: str
     author: Optional[dict] = None
-    created_at: Optional[datetime] = Field(default_factory=datetime.now)
+    created_at: Optional[datetime] = Field(default_factory=datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None
-    publised_at: Optional[datetime] = Field(default_factory=datetime.now)
+    publised_at: Optional[datetime] = Field(default_factory=datetime.now(timezone.utc))
     is_deleted: Optional[bool] = False

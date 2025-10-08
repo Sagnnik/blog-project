@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from models import PostCreate, PostUpdate
 from deps import require_admin
@@ -49,7 +49,7 @@ async def admin_get_post(id: str, admin=Depends(require_admin)):
 
 @router.post("/posts")
 async def create_post(payload: PostCreate, admin=Depends(require_admin)):
-    now = datetime.now(datetime.timezone.utc)
+    now = datetime.now(timezone.utc)
     doc = payload.dict()
 
     # Complete the fields
@@ -89,9 +89,9 @@ async def update_post(id: str, payload: PostUpdate, admin=Depends(require_admin)
         if await db.posts.find_one({"slug": data["slug"], "_id": {"$ne": oid}}):
             raise HTTPException(status_code=409, detail="slug exists")
         
-    data["updated_at"] = datetime.now(datetime.timezone.utc)
+    data["updated_at"] = datetime.now(timezone.utc)
     if data.get("status") == "published" and not post.get("published_at"):
-        data["published_at"] = datetime.now(datetime.timezone.utc)
+        data["published_at"] = datetime.now(timezone.utc)
 
     await db.posts.update_one({"_id": oid}, {"$set": data})
     new_doc = await db.posts.find_one({"_id": oid})
@@ -109,7 +109,7 @@ async def publish_post(id: str, admin=Depends(require_admin)):
     if not post:
         raise HTTPException(status_code=404, detail="Not found")
     
-    now=datetime.now(datetime.timezone.utc)
+    now=datetime.now(timezone.utc)
     await db.posts.update_one({"_id": oid}, {
         "$set": {
             "status": "published",
@@ -127,7 +127,7 @@ async def change_status(id: str, status: str, admin=Depends(require_admin)):
         oid = ObjectId(id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid id")
-    now = datetime.now(datetime.timezone.utc)
+    now = datetime.now(timezone.utc)
 
     update = {"satus": status, "updated_at": now}
     if status == "published":
@@ -137,13 +137,13 @@ async def change_status(id: str, status: str, admin=Depends(require_admin)):
     return {"ok": True, "at": now}
 
 # FIXME should use patch method i think
-@router.delete("/posts/{id}")
+@router.patch("/posts/{id}")
 async def soft_delete(id: str, admin=Depends(require_admin)):
     try:
         oid = ObjectId(id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid id")
-    now = datetime.now(datetime.timezone.utc)
+    now = datetime.now(timezone.utc)
 
     await db.posts.update_one({"_id": oid}, {
         "$set": {
@@ -153,17 +153,19 @@ async def soft_delete(id: str, admin=Depends(require_admin)):
         }
     })
 
-    return {"ok": True, "at": now}
+    post = await db.posts.find_one({"_id": oid})
+    return doc_fix_ids(post)
 
-@router.post("/posts/{id}/restore")
+@router.patch("/posts/{id}/restore")
 async def restore_post(id:str, admin=Depends(require_admin)):
     try:
         oid = ObjectId(id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid id")
     
+    now = datetime.now(timezone.utc)
     await db.posts.update_one({"_id": oid},{
-        "$set": {"is_deleted":False},
+        "$set": {"is_deleted":False, "updated_at": now},
         "$unset": {"deleted_at": "", "deleted_by": ""}
     })
 

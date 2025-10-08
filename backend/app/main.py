@@ -5,6 +5,7 @@ import os
 import sys
 from routers import posts, public, assets
 from db import init_db
+from init_index import init as init_indexes
 
 app = FastAPI(title="Blog Backend")
 
@@ -25,6 +26,11 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     await init_db()
+
+    try:
+        await init_indexes()
+    except Exception as e:
+        print("Index init failed:", e)
 
 # Mount static uploads directory
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "./uploads")

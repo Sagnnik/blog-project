@@ -9,7 +9,8 @@ async def init_db():
     global _client, db
     if _client is None:
         _client = AsyncIOMotorClient(MONGO_URI)
-        db_name = _client.get_default_database().name if _client.get_default_database() else "blogdb"
+        #db_name = _client.get_default_database().name if _client.get_default_database() else "blogdb"
+        db_name = "blogdb"
         db = _client[db_name]
 
 

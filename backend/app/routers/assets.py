@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, File, UploadFile, Depends
 from uuid import uuid4
 import os
 import aiofiles
-from datetime import datetime
+from datetime import datetime, timezone
+from bson import ObjectId
 
 from deps import require_admin
 from db import db
@@ -38,7 +39,7 @@ async def upload_assets(
         content = await file.read()
         await out_file.write(content)
 
-    now = datetime.now(datetime.timezone.utc)
+    now = datetime.now(timezone.utc)
 
     doc = {
         "path": f"/uploads/{filename}",
@@ -63,4 +64,27 @@ async def upload_assets(
 
 @router.delete("/assets/{asset_id}")
 async def delete_asset(asset_id: str, admin=Depends(require_admin)):
-    pass
+    try:
+        oid = ObjectId(asset_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid id")
+    
+    asset = await db.assets.find_one({"_id": oid})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    # FIXME add a use_by_posts field
+    if asset.get("use_by_post"):
+        raise HTTPException(status_code=400, detail="Asset is referenced by Post")
+    
+    #delete file
+    local_path = asset["path"].lstrip("/")
+    try:
+        os.remove(local_path)
+
+    except Exception:
+        pass
+    
+    now = datetime.now(timezone.utc)
+    await db.assets.delete_one({"_id": oid})
+    return {"ok": True, "at":now}
