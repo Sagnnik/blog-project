@@ -1,0 +1,142 @@
+API testing results
+
+Create Post: Takes the required fields
+[
+  {
+    "title": "string",
+    "slug": "string",
+    "summary": "string",
+    "body": "string",
+    "cover_image": "string",
+    "images": [],
+    "tags": [],
+    "meta": {},
+    "status": "draft",
+    "author": {
+      "clerk_user_id": "local-admin",
+      "name": "Admin"
+    },
+    "created_at": "2025-10-08T17:40:53.201000",
+    "updated_at": "2025-10-08T17:40:53.201000",
+    "published_at": null,
+    "is_deleted": false,
+    "id": "68e6a225cebc765d59414a4d"
+  }
+]
+
+Publish Post: Changes the status to Publish
+{
+  "title": "string",
+  "slug": "string",
+  "summary": "string",
+  "body": "string",
+  "cover_image": "string",
+  "images": [],
+  "tags": [],
+  "meta": {},
+  "status": "published",
+  "author": {
+    "clerk_user_id": "local-admin",
+    "name": "Admin"
+  },
+  "created_at": "2025-10-08T17:40:53.201000",
+  "updated_at": "2025-10-08T17:43:21.105000",
+  "published_at": "2025-10-08T17:43:21.105000",
+  "is_deleted": false,
+  "id": "68e6a225cebc765d59414a4d"
+}
+
+Change status: Can be used for editing the doc (status="draft"/"published" and published_at changes when status = "published")
+[
+  {
+    "title": "string",
+    "slug": "string",
+    "summary": "string",
+    "body": "string",
+    "cover_image": "string",
+    "images": [],
+    "tags": [],
+    "meta": {},
+    "status": "draft",
+    "author": {
+      "clerk_user_id": "local-admin",
+      "name": "Admin"
+    },
+    "created_at": "2025-10-08T17:40:53.201000",
+    "updated_at": "2025-10-08T17:46:22.093000",
+    "published_at": "2025-10-08T17:43:21.105000",
+    "is_deleted": false,
+    "id": "68e6a225cebc765d59414a4d"
+  }
+]
+
+Update post: Need to change the HTTP Method from PUT to PATCH
+{
+  "title": "string2",
+  "slug": "string2",
+  "summary": "string2",
+  "body": "string2",
+  "cover_image": "string",
+  "images": [],
+  "tags": [],
+  "meta": {},
+  "status": "draft",
+  "author": {
+    "clerk_user_id": "local-admin",
+    "name": "Admin"
+  },
+  "created_at": "2025-10-08T17:40:53.201000",
+  "updated_at": "2025-10-08T17:52:10.151000",
+  "published_at": "2025-10-08T17:43:21.105000",
+  "is_deleted": false,
+  "id": "68e6a225cebc765d59414a4d"
+}
+
+Soft Delete: Sets the is_deleted flag to true ---> ( works fine on public list posts endpoint )
+{
+  "title": "string2",
+  "slug": "string2",
+  "summary": "string2",
+  "body": "string2",
+  "cover_image": "string",
+  "images": [],
+  "tags": [],
+  "meta": {},
+  "status": "published",
+  "author": {
+    "clerk_user_id": "local-admin",
+    "name": "Admin"
+  },
+  "created_at": "2025-10-08T17:40:53.201000",
+  "updated_at": "2025-10-08T17:54:03.515000",
+  "published_at": "2025-10-08T17:54:03.515000",
+  "is_deleted": true,
+  "deleted_at": "2025-10-08T17:54:27.435000",
+  "deleted_by": "local-admin",
+  "id": "68e6a225cebc765d59414a4d"
+}
+
+Restore Post: Restores the post back after soft delete
+{
+  "title": "string2",
+  "slug": "string2",
+  "summary": "string2",
+  "body": "string2",
+  "cover_image": "string",
+  "images": [],
+  "tags": [],
+  "meta": {},
+  "status": "published",
+  "author": {
+    "clerk_user_id": "local-admin",
+    "name": "Admin"
+  },
+  "created_at": "2025-10-08T17:40:53.201000",
+  "updated_at": "2025-10-08T17:59:54.473000",
+  "published_at": "2025-10-08T17:54:03.515000",
+  "is_deleted": false,
+  "id": "68e6a225cebc765d59414a4d"
+}
+
+1. What is the use of Change status endpoint? is it useful when I try to edit the blog? Its usees overlaps a lot on Update_post and publish_post? How can all these 3 enpoints will interact with the frontend ui?
+2. When I am updating a blog with update_post should'nt it be a patch http method since i may not update all the fields? Technically in my code it doesn't matter since it does not unsets any fields
