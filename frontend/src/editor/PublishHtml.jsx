@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import SimpleEditor from "./SimpleEditor";
+import 'dotenv/config'
 
 export default function PublishHtml () {
     const [html, setHtml] = useState("");
     const [publish, setPublish] = useState(false);
+    const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
     async function handlePublish() {
         try {
@@ -29,7 +31,10 @@ export default function PublishHtml () {
                 // ?? have to change the link
                 const res = await fetch('http://localhost:8000/publish', {
                 method:"POST",
-                headers: {"Content-Type": "application/json"},
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${ADMIN_TOKEN}`,
+                },
                 body: JSON.stringify({html: fullHtml})
                 })
 
