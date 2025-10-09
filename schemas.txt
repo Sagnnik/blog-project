@@ -1,6 +1,6 @@
 API testing results
 
-Create Post: Takes the required fields
+Create Post: Starts a Post Draft
 [
   {
     "title": "string",
@@ -24,7 +24,7 @@ Create Post: Takes the required fields
   }
 ]
 
-Publish Post: Changes the status to Publish
+Publish Post: Changes the status to Publish using Publish Button
 {
   "title": "string",
   "slug": "string",
@@ -46,7 +46,8 @@ Publish Post: Changes the status to Publish
   "id": "68e6a225cebc765d59414a4d"
 }
 
-Change status: Can be used for editing the doc (status="draft"/"published" and published_at changes when status = "published")
+Change status: Toggle Button without editor in the admin post lists for easy access 
+(status="draft"/"published" and published_at changes when status = "published")
 [
   {
     "title": "string",
@@ -70,7 +71,9 @@ Change status: Can be used for editing the doc (status="draft"/"published" and p
   }
 ]
 
-Update post: Need to change the HTTP Method from PUT to PATCH
+Update post: Save Button or Auto Save feature in the editor. 
+(Since the status is updated by publish button inside the editor we need to update/save the final post first)
+(helps in editing as well)
 {
   "title": "string2",
   "slug": "string2",
