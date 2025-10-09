@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import FroalaEditor from "react-froala-wysiwyg";
 
-export default function FroalaEditorV2({html, setHtml}) {
+export default function SimpleEditor({html, setHtml}) {
 
     const config = {
         placeholderText: "Start writing your blog post ... ",
         charCounterCount: true,
-        imageUploadURL: "http://localhost:8000/uploadimgs", // adapt host/port in prod
+        imageUploadURL: "http://localhost:8000/uploadimgs", // ?? Need to change this
         imageUploadMethod: "POST",
     }
 
