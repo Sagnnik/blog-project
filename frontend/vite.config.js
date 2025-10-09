@@ -4,7 +4,10 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [
-    tailwindcss(), react()
+    tailwindcss(),
+    react(),
   ],
-  server: {watch: {usePolling:true}},
+  server: {
+    watch: { usePolling: true },
+  },
 })

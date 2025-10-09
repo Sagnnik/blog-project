@@ -1,11 +1,10 @@
 import React, { useState } from "react";
 import SimpleEditor from "./SimpleEditor";
-import 'dotenv/config'
 
 export default function PublishHtml () {
     const [html, setHtml] = useState("");
     const [publish, setPublish] = useState(false);
-    const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+    const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
 
     async function handlePublish() {
         try {
@@ -60,6 +59,7 @@ export default function PublishHtml () {
             setPublish(false);
             }       
     }
+    
     return (
         <div className='max-w-3xl mx-auto my-10 px-4'>
             <h1>Froala Starter</h1>
@@ -67,7 +67,7 @@ export default function PublishHtml () {
 
             <SimpleEditor html={html} setHtml={setHtml}/>
             <button 
-            onClick={handlePublish} 
+            onClick={handlePublish}
             disabled={publish}
             className='bg-green-500 hover:bg-green-600 text-white mt-4 font-bold py-2 px-4 rounded-lg cursor-pointer transition duration-300 ease-in-out'>
                 {publish? "Publishing ...":"Publish"}
