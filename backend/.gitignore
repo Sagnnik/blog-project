@@ -6,6 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+# folders to untrack
+app/uploads
+
 # Virtual environments
 .venv
 .env
