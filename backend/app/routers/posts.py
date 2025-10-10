@@ -97,7 +97,7 @@ async def update_post(id: str, payload: PostUpdate, admin=Depends(require_admin)
     new_doc = await db.posts.find_one({"_id": oid})
     return doc_fix_ids(new_doc)
 
-@router.post("/posts/{id}/publish")
+@router.patch("/posts/{id}/publish")
 async def publish_post(id: str, admin=Depends(require_admin)):
     try:
         oid = ObjectId(id)

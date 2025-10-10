@@ -32,12 +32,6 @@ export default function SimpleEditor({html, setHtml}) {
                 model={html}
                 onModelChange={(model) => setHtml(model)}
             />
-            <div style={{ marginTop: 18 }}>
-                <strong>HTML output (preview)</strong>
-                <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 6, marginTop: 8 }}>
-                <div dangerouslySetInnerHTML={{ __html: html }} />
-                </div>
-            </div>
         </div>
     );
 }
