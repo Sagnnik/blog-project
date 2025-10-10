@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from datetime import datetime, timezone
 from bson import ObjectId
 from models import PostCreate, PostUpdate
@@ -82,7 +82,7 @@ async def update_post(id: str, payload: PostUpdate, admin=Depends(require_admin)
     if not post:
         raise HTTPException(status_code=404, detail="Post Not Found")
     
-    data = payload.dict()
+    data = payload.dict(exclude_unset=True)
 
     #If slug is updated change uniqueness
     if data.get("slug") != post.get("slug"):
@@ -98,7 +98,11 @@ async def update_post(id: str, payload: PostUpdate, admin=Depends(require_admin)
     return doc_fix_ids(new_doc)
 
 @router.patch("/posts/{id}/publish")
-async def publish_post(id: str, admin=Depends(require_admin)):
+async def publish_post(
+    id: str, 
+    payload: dict = Body(...),
+    admin=Depends(require_admin)
+):
     try:
         oid = ObjectId(id)
 
@@ -110,13 +114,26 @@ async def publish_post(id: str, admin=Depends(require_admin)):
         raise HTTPException(status_code=404, detail="Not found")
     
     now=datetime.now(timezone.utc)
-    await db.posts.update_one({"_id": oid}, {
-        "$set": {
-            "status": "published",
-            "published_at": now,
-            "updated_at": now
-        }
-    })
+    html_id = payload.get("htmlId") or payload.get("html_id")
+    html_link = payload.get("htmlLink") or payload.get("html_link")
+    if html_link:
+        await db.posts.update_one({"_id": oid}, {
+            "$set": {
+                "html_id": html_id,
+                "html_link": html_link,
+                "status": "published",
+                "published_at": now,
+                "updated_at": now
+            }
+        })
+    else:
+        await db.posts.update_one({"_id": oid}, {
+            "$set": {
+                "status": "published",
+                "published_at": now,
+                "updated_at": now
+            }
+        })
 
     updated = await db.posts.find_one({"_id":oid})
     return doc_fix_ids(updated)
