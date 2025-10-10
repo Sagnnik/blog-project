@@ -38,7 +38,7 @@ export function buildFullHtml (titleInner, body, summaryInner) {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>${t}</title>
-        <meta name="description" content="${s}" />
+        <meta charset="utf-8">
         <style>
           body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 28px; }
           pre { background:#06203a; color:#e6f0ff; padding:12px; border-radius:8px; overflow:auto; }
@@ -47,7 +47,6 @@ export function buildFullHtml (titleInner, body, summaryInner) {
       <body>
         <article>
           <h1>${t}</h1>
-          <section class="summary"><p>${s}</p></section>
           <section class="content">
             ${body}
           </section>

@@ -4,8 +4,8 @@ import { slugify, buildFullHtml, parseTags } from './utils';
 
 export default function PublishHtml () {
 
-    const postId = "68e6a225cebc765d59414a4d" // ?? need this as prop
-    //const postId = "68e6a225cebc765d59414a4d"
+    const postId = "68e957ae428e36e81dee90c0" // ?? need this as prop
+    //const postId = "68e92db1b99e6aa5a6d9247b"
     const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
     const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
     
@@ -28,14 +28,14 @@ export default function PublishHtml () {
                 slug: slug.trim() || slugify(title),
                 tags: parseTags(tagsText),
                 summary: summary.trim(),
-                status: "draft"
+                status: "draft",
             }
 
-            const res = await fetch ("http://localhost:8000/api/posts/", {
+            const res = await fetch (`http://localhost:8000/api/posts/${postId}`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
-                    Autorization: `Bearer ${ADMIN_TOKEN}`
+                    "Authorization": `Bearer ${ADMIN_TOKEN}` 
                 },
                 body: JSON.stringify(payload)
             });
@@ -44,16 +44,6 @@ export default function PublishHtml () {
                 const txt = await res.text();
                 throw new Error(`Create Failed: ${res.status} ${txt}`);
             }
-
-            const data = await res.json();
-            const id = data.post_id || data.id;
-
-            if(!id) {
-                console.warn("Created Response Did not include a post ID")
-            }
-
-            // ?? need to set state for postId
-            return data
         }
         catch(err) {
             console.error("handleCreat Error:", err);
@@ -68,8 +58,6 @@ export default function PublishHtml () {
     async function handleSave() {
         try {
             setSaving(true)
-            
-            // ?? Need to get the Post Id
 
             const payload = {
                 title: title.trim(),
@@ -80,11 +68,11 @@ export default function PublishHtml () {
                 status: "draft"
             }
 
-            const res = await fetch("http://localhost:8000/api/posts/", {
+            const res = await fetch(`http://localhost:8000/api/posts/${postId}`, {
                 method:"PATCH",
                 headers: {
                     "Content-Type": "application/json",
-                    Authentication: `Bearer ${ADMIN_TOKEN}`
+                    "Authorization": `Bearer ${ADMIN_TOKEN}`
                 },
                 body: JSON.stringify(payload)
             });
@@ -95,9 +83,7 @@ export default function PublishHtml () {
             }
 
             const data = await res.json()
-            alert("Saved Successfully")
-
-            return data
+            console.log("Saved Successfully")
         }
         catch(err) {
             console.error("handleSave Error:", err);
@@ -114,31 +100,25 @@ export default function PublishHtml () {
         try {
             setPublish(true)
             const saved = await handleSave();
-            // ?? handle saved id
 
             const finalHtml = buildFullHtml(title, html, summary);
 
             const finalSlug = slug.trim() || slugify(title);
             const filename = `${finalSlug.replace(/\s+/g, "-").toLowerCase()}-post.html`
-            //const blob = new Blob([finalHtml], {type: "text/html"})
-            
-            // this payload is for assests/html
-            const payload = {
-                caption: title.trim(),
-                alt: `HTML snapshot for ${title.trim()}`,
-                slug: finalSlug,
-                asset: finalHtml,
-                filename: filename,
-                postId: postId
-            }
+            const blob = new Blob([finalHtml], {type: "text/html"})
+            const form = new FormData();
+            form.append("file", blob, filename);
+            form.append("alt", `HTML snapshot for ${title}`);
+            form.append("caption", title);
+            form.append("post_id", postId)
 
             // Upload the final html as asset
-            const assetRes = await fetch ("http:/localhost:800/api/assets", {
-                method:"PATCH",
+            const assetsRes = await fetch ("http://localhost:8000/api/assets/html", {
+                method:"POST",
                 headers:{
-                    Autorization: `Bearer ${ADMIN_TOKEN}`
+                    "Authorization": `Bearer ${ADMIN_TOKEN}`
                 },
-                body: JSON.stringify(payload)
+                body: form
             })
 
             if (!assetsRes.ok) {
@@ -146,18 +126,21 @@ export default function PublishHtml () {
                 throw new Error(`Asset upload failed: ${assetsRes.status} ${txt}`);
             }
             const assetData = await assetsRes.json();
-            const assetId = await assetData.id || assetData.asset_id
+
+            const assetId = await assetData.id || assetData.asset_id;
+            const assetLink = await assetData.link || assetData.public_link;
 
             const publishPayload = {
                 id: postId,
-                htmlId: assetId
+                html_id: assetId,
+                html_link: assetLink
             }
 
-            const publishRes = await fetch ("http://localhost:8000/api/publish", {
+            const publishRes = await fetch (`http://localhost:8000/api/posts/${postId}/publish`, {
                 method: "PATCH",
                 headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${ADMIN_TOKEN}`,
+                "Authorization": `Bearer ${ADMIN_TOKEN}`
                 },
                 body: JSON.stringify(publishPayload),
             });
@@ -167,7 +150,8 @@ export default function PublishHtml () {
                 throw new Error(`Publish failed: ${publishRes.status} ${txt}`);
             }
             const publishData = await publishRes.json();
-            const previewUrl = publishData.public_link || publishData.preview_link || publishData.link;
+            console.log("Published Successfully")
+            const previewUrl = assetLink
 
             if (previewUrl) {
                 window.open(previewUrl, "_blank");
