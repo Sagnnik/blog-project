@@ -14,10 +14,12 @@ class ImageMeta(BaseModel):
     post_id: Optional[str] = None
 
 class PostCreate(BaseModel):
-    title: str
+    title: Optional[str] = None
     slug: Optional[str] = None
     summary: Optional[str] = None
-    body: str
+    body: Optional[str] = None
+    html_id: Optional[str] = None
+    html_link: Optional[str] = None
     cover_image: Optional[str] = None 
     images: Optional[List[ImageMeta]] = []
     tags: Optional[List[str]] = []
