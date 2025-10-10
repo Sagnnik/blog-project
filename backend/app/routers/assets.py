@@ -6,6 +6,7 @@ import aiofiles
 from datetime import datetime, timezone
 from bson import ObjectId
 from pathlib import Path
+from pymongo.errors import DuplicateKeyError
 
 from deps import require_admin
 from db import db, doc_fix_ids
@@ -14,12 +15,12 @@ router = APIRouter()
 
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "./uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+HTML_UPLOAD_SUBDIR = "html"
+ALLOWED_HTML_TYPES = {"text/html", "application/xhtml+xml"}
 ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"}
 MAX_FILE_SIZE = 10*1024*1024
 
 
-# FIXME Don't use this endpoint now. This needs to be merged with the editor
 # Re-writing the upload_assets route
 @router.post("/assets")
 async def upload_assets(
@@ -86,11 +87,82 @@ async def upload_assets(
     result = await db.assets.insert_one(doc)
     doc["_id"] = result.inserted_id
 
-    return JSONResponse({
-        "asset_id": str(result.inserted_id),
+    # return JSONResponse({
+    #     "asset_id": str(result.inserted_id),
+    #     "path": stored_path,
+    #     "filename": filename,
+    #     "link": public_url
+    # })
+    return {"link":public_url}
+
+# Add a route for saving satic html blog page
+@router.post("/assets/html")
+async def upload_html_asset(
+    request: Request,
+    file: UploadFile = File(...),
+    post_id: str = None,
+    alt: str = None,
+    caption: str = None,
+    admin=Depends(require_admin)
+):
+    """
+    Save an HTML artifact (final rendered HTML) to disk and register an asset
+    Returns: {asset_id, path, filename, link}
+    """
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+    
+    #Validate Content Type
+    if file.content_type not in ALLOWED_HTML_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported file type for HTML asset")
+    
+    contents = await file.read()
+
+    ext = Path(file.filename).suffix or ".html"
+    if ext.lower() not in (".html", ".htm"):
+        ext = ".html"
+
+    filename = file.filename
+    upload_dir = Path(UPLOAD_DIR) / HTML_UPLOAD_SUBDIR
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    dest = upload_dir / filename
+
+    async with aiofiles.open(dest, "wb") as out_files:
+        await out_files.write(contents)
+
+    # Build the Mongo Storage File Meatadata
+    stored_path = f"/uploads/{HTML_UPLOAD_SUBDIR}/{filename}"
+    base_url = str(request.base_url).rstrip("/")
+    public_url = f"{base_url}{stored_path}"
+
+    now = datetime.now(timezone.utc)
+    doc = {
         "path": stored_path,
         "filename": filename,
-        "link": public_url
+        "mime": file.content_type,
+        "size": len(contents),
+        "uploaded_by": admin.get("clerk_user_id"),
+        "post_id": post_id,
+        "used_by_posts": True,
+        "alt": alt,
+        "caption": caption,
+        "created_at": now,
+        "public_link": public_url,
+    }
+
+    try:
+        result = await db.assets.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        asset = doc
+    except DuplicateKeyError:
+        asset = await db.assets.find_one({"path": stored_path})
+
+
+    return JSONResponse({
+    "asset_id": str(asset["_id"]),
+    "path": asset["path"],
+    "filename": asset["filename"],
+    "link": asset.get("public_link", public_url),
     })
 
 
