@@ -152,8 +152,7 @@ async def change_status(id: str, status: str, admin=Depends(require_admin)):
     await db.posts.update_one({"_id": oid}, {"$set": update})
     return {"ok": True, "at": now}
 
-# FIXME should use patch method i think
-@router.patch("/posts/{id}")
+@router.patch("/posts/{id}/delete")
 async def soft_delete(id: str, admin=Depends(require_admin)):
     try:
         oid = ObjectId(id)

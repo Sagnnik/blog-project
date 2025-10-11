@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import BlogCard from "./BlogCard";
 import Navbar from "./Navbar";
 import PublishHtml from "../editor/PublishHtml";
@@ -37,8 +37,39 @@ export default function AdminBlogPage() {
     //const [postId, setPostId] = useState(null);
     const [posts, setPosts] = useState(initialPosts);
     const [isCreating, setIsCreating] = useState(false);
+    const [isLoading, setisLoading] = useState(false);
+    const [loadingIds, setLoadingIds] = useState(new Set);
+
     const [nextId, setNextId] = useState(3);
     const [showDeleted, setShowDeleted] = useState(false);
+
+    useEffect(() => {
+        async function fetchPost(params) {
+            try {
+                setisLoading(true);
+                let limit = 50;
+                let skip = 0;
+                const res = await fetch (`http://localhost:8000/api/posts?limit=${limit}&${skip}`, {
+                    headers: {"Authorization": `Bearer ${ADMIN_TOKEN}`}
+                });
+                if (!res.ok) {
+                    const txt = await res.text()
+                    throw new Error(`Post Loding Error: ${res.status} ${txt}`)
+                }
+                const data = await res.json();
+                setPosts(data);
+            }
+            catch(err) {
+                console.error("Error Fetching posts: ", err);
+                alert("Error fetching posts: " + (err.message || err))
+                throw err
+            }
+            finally{
+                setisLoading(false);
+            }   
+        }
+        fetchPost();
+    }, [])
 
     async function createNew() {
         try {
@@ -71,28 +102,118 @@ export default function AdminBlogPage() {
         }
     }
 
-    function toggleStatus(id) {
-        setPosts(posts.map(p => 
-            p.id === id? 
-            {...p, status:p.status === 'published'? 'draft': 'published'}: p));
+    // need to copy the ids and save in another state and revert if the Operation fails
+    function setLoading(id, isLoading) {
+        setLoadingIds(prev => {
+            const copy = new Set(prev);
+            if (isLoading) copy.add(id);
+            else copy.delete(id);
+            return copy;
+        });
     }
 
-    function softDelete(id) {
-        setPosts(posts.map(p => 
-            p.id === id?
-            {...p, deleted:true}:p
-        ))
+    async function toggleStatus(id) {
+        const prevPost = posts.find(p => p.id === id);
+        if(!prevPost) return;
+
+        const newStatus = prevPost.status === "published"? "draft" : "published";
+
+        setPosts(prev => prev.map(p => p.id === id? { ...p, status: newStatus}: p));
+        setLoading(id, true);
+        //encodeURIComponent for any string term
+        try {
+            const res = await fetch(`http://localhost:8000/api/posts/${id}/status?status=${encodeURIComponent(newStatus)}`, {
+                method: "PATCH",
+                headers: {
+                    "Authorization": `Bearer ${ADMIN_TOKEN}`,
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if(!res.ok) {
+                const txt = await res.text()
+                throw new Error(`Error Toggling Status: ${res.status} {txt}` )
+            }
+        }
+        catch(err) {
+            console.error("togglestatus error: ", err);
+            alert("Failed to toggle status: ", (err.message || err));
+
+            setPosts(prev => prev.map ( p => p.id === id? {...p, status: prevPost.status} : p));
+        }
+        finally{
+            setLoading(id, false)
+        }  
     }
 
-    function restore(id) {
-        setPosts(posts.map(p => 
-            p.id === id?
-            {...p , deleted:false}:p
-        ))
+    async function softDelete(id) {
+        const prevPost = posts.find(p => p.id === id);
+        if (!prevPost) return;
+
+        setPosts(prev => prev.map( p => p.id === id? {...p, is_deleted: true} : p));
+        setLoading(id, true);
+
+        try{
+            const res = await fetch (`http://localhost:8000/api/posts/${id}/delete`, {
+                method: "PATCH",
+                headers: {
+                    "Authorization": `Bearer ${ADMIN_TOKEN}`,
+                    "Content-Type": "application/json"
+                }  
+            });
+
+            if (!res.ok) {
+                const txt = await res.text();
+                throw new Error(`Soft-delete failed: ${res.status} ${txt}`);
+            }
+        }
+        catch (err) {
+            console.error("softDelete Failed: ", err);
+            alert("Failed to soft delete: ", (err.message || err))
+
+            setPosts(prev => prev.map(p => p.id === id? {...p, is_deleted:false} : p));
+        }
+        finally{
+            setLoading(id, false);
+        }
     }
 
-    const visiblePosts = posts.filter(p => (showDeleted? true: !p.deleted))  // ?? Not needed DB query will handle this
-    const deletedCount = posts.filter(p => p.deleted).length
+    async function restore(id) {
+        const prevPost = posts.find( p => p.id === id);
+        if(!prevPost) return;
+
+        setPosts(prev => prev.map( p => p.id === id? {...p, is_deleted:false } : p));
+        setLoading(id, true)
+
+        try {
+            const res = await fetch (`http://localhost:8000/api/posts/${id}/restore`, {
+                method:"PATCH",
+                headers: {
+                    "Authorization": `Bearer ${ADMIN_TOKEN}`,
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Restore failed: ${res.status} ${text}`);
+            }
+        }
+        catch(err) {
+            console.error("restore error:", err);
+            alert("Failed to restore post: " + (err.message || err));
+
+            setPosts(prev => prev.map ( p => p.id === id ? { ...p, is_deleted: true} : p));
+        }
+        finally{
+            setLoading(id, false);
+        }
+    }
+
+
+
+    const visiblePosts = posts.filter(p => (showDeleted? true: !p.is_deleted))  // ?? Not needed DB query will handle this
+    const deletedCount = posts.filter(p => p.is_deleted).length
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -119,10 +240,10 @@ export default function AdminBlogPage() {
                     )}
 
                     {visiblePosts.map( post => (
-                        post.deleted ? (
+                        post.is_deleted ? (
                             <div key={post.id} className="bg-red-50 border rounded-md p-4 flex items-center justify-between">
                                 <div>
-                                    <div className="font-semibold">{post.title} (deleted)</div>
+                                    <div className="font-semibold">{post.title} (is_deleted)</div>
                                     <div className="text-xs text-gray-500">{post.date}</div>
                                 </div>
                                 <div className="flex gap-2">

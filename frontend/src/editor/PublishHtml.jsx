@@ -9,8 +9,6 @@ export default function PublishHtml () {
     const {postId} = useParams();
     console.log(postId)
 
-    //const postId = "68e957ae428e36e81dee90c0"
-    //const postId = "68e92db1b99e6aa5a6d9247b"
     const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
     const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
     
