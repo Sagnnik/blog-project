@@ -5,6 +5,8 @@ from models import PostCreate, PostUpdate
 from deps import require_admin
 from db import db, doc_fix_ids
 import asyncio
+from typing import Optional
+from uuid import uuid4
 
 # Notes on MongoDB
 # data.get["slug"] returns None if key is not found
@@ -48,24 +50,21 @@ async def admin_get_post(id: str, admin=Depends(require_admin)):
     return doc_fix_ids(post)
 
 @router.post("/posts")
-async def create_post(payload: PostCreate, admin=Depends(require_admin)):
+async def create_post(payload: Optional[PostCreate]=None, admin=Depends(require_admin)):
     now = datetime.now(timezone.utc)
+    payload = payload or PostCreate()
     doc = payload.dict()
 
-    # Complete the fields
     doc.update({
         "author": {"clerk_user_id": admin["clerk_user_id"], "name": admin.get("name")},
         "created_at": now,
-        "updated_at": now,
-        "published_at": now if doc.get("status") == "published" else None,
+        "status":"draft",
         "is_deleted": False
+
     })
 
-    # Slug Uniqueness check if provided
-    if doc.get("slug"):
-        existing = await db.posts.find_one({"slug": doc["slug"]})
-        if existing:
-            raise HTTPException(status_code=409, detail="slug already exists")
+    if doc.get("slug") is None:
+        doc["slug"] = uuid4().hex
         
     result = await db.posts.insert_one(doc)         # Returns an insertOneResult Object not the doc
     return {"id":str(result.inserted_id)}           # Use .inserted_id to fetch the doc id from insertOneResult object
