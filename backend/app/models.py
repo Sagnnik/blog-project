@@ -21,9 +21,9 @@ class PostCreate(BaseModel):
     html_id: Optional[str] = None
     html_link: Optional[str] = None
     cover_image: Optional[str] = None 
-    images: Optional[List[ImageMeta]] = []
-    tags: Optional[List[str]] = []
-    meta: Optional[dict] = {}
+    images: Optional[List[ImageMeta]] = Field(default_factory=list)
+    tags: Optional[List[str]] = Field(default_factory=list)
+    meta: Optional[dict] = Field(default_factory=dict)
     status: Optional[str] = "draft" # Or published
 
 class PostUpdate(PostCreate):

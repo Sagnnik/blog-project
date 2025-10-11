@@ -1,10 +1,15 @@
 import React, { useState } from "react";
 import SimpleEditor from "./SimpleEditor";
 import { slugify, buildFullHtml, parseTags } from './utils';
+import { useParams, useNavigate } from "react-router-dom";
 
 export default function PublishHtml () {
 
-    const postId = "68e957ae428e36e81dee90c0" // ?? need this as prop
+    const navigate = useNavigate();
+    const {postId} = useParams();
+    console.log(postId)
+
+    //const postId = "68e957ae428e36e81dee90c0"
     //const postId = "68e92db1b99e6aa5a6d9247b"
     const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
     const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
@@ -160,6 +165,7 @@ export default function PublishHtml () {
                 alert("Published successfully (no preview URL returned)");
                 console.log("Publish response:", publishData);
             }
+            navigate("/")
         }
         catch(err){
             console.error("handlePublish Error:", err)

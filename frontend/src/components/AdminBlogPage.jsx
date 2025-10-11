@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import BlogCard from "./BlogCard";
 import Navbar from "./Navbar";
+import PublishHtml from "../editor/PublishHtml";
+import { useNavigate } from "react-router-dom";
 
 const initialPosts = [
 {
@@ -25,26 +27,48 @@ tags: ['gnn', 'ui'],
 },
 ];
 
-export default function () {
+export default function AdminBlogPage() {
+
+    const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
+    const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
+
+    const navigate = useNavigate();
+
+    //const [postId, setPostId] = useState(null);
     const [posts, setPosts] = useState(initialPosts);
+    const [isCreating, setIsCreating] = useState(false);
     const [nextId, setNextId] = useState(3);
     const [showDeleted, setShowDeleted] = useState(false);
 
-    function createNew() {
-        const title = window.prompt('New Post Title');
-        if(!title) return;
-        const newPost = {
-            id: nextId,
-            title: title,
-            excerpt: 'Start Writing your post',
-            status: 'draft',
-            deleted: false,
-            date: new Date().toISOString().slice(0,10),
-            readTime: 1,
-            tags: []
-        };
-        setPosts([newPost, ...posts]);
-        setNextId(nextId + 1);
+    async function createNew() {
+        try {
+            setIsCreating(true);
+            const res = await fetch ("http://localhost:8000/api/posts", {
+                method:"POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${ADMIN_TOKEN}` 
+                }
+            });
+
+            if(!res.ok) {
+                const txt = await res.text()
+                throw new Error(`Create Post Failed: ${res.status} ${txt}`)
+            }
+            
+            const data = await res.json()
+            const postId = data.id || data.post_id;
+            
+            navigate(`/admin/publish/${postId}`);
+        }
+        catch(err) {
+            console.error("Create-New Error:", err);
+            alert("Error Creating New post: " + (err.message || err))
+            throw err;
+        }
+        finally {
+            setIsCreating(false);
+        }
     }
 
     function toggleStatus(id) {
@@ -77,8 +101,10 @@ export default function () {
                 <header className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Admin-Posts</h1>
                     <div className="flex gap-3">
-                        <button onClick={createNew} 
-                        className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition">New Post</button>
+                        <button 
+                            onClick={createNew} 
+                            disabled={isCreating}
+                            className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition">New Post</button>
                         <label className="flex items-center gap-2 text-sm bg-red-400 rounded-md px-3 py-1">
                             <input type="checkbox" 
                             checked={showDeleted} 
