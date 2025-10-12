@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import BlogCard from "./BlogCard";
 import Navbar from "./Navbar";
-import PublishHtml from "../editor/PublishHtml";
 import { useNavigate } from "react-router-dom";
 
 const initialPosts = [
@@ -210,6 +209,11 @@ export default function AdminBlogPage() {
         }
     }
 
+    function openPost(post) {
+        const slug = post.slug
+        navigate(`/article/${slug}`, { state: {postId: post.id}});
+    }
+
 
 
     const visiblePosts = posts.filter(p => (showDeleted? true: !p.is_deleted))  // ?? Not needed DB query will handle this
@@ -220,7 +224,7 @@ export default function AdminBlogPage() {
             <Navbar />
             <main className="max-w-5xl mx-auto p-6  flex flex-col gap-6">
                 <header className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Admin-Posts</h1>
+                    <h1 className="text-2xl font-bold">Admin-Dashboard</h1>
                     <div className="flex gap-3">
                         <button 
                             onClick={createNew} 
@@ -247,7 +251,8 @@ export default function AdminBlogPage() {
                                     <div className="text-xs text-gray-500">{post.date}</div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => restore(post.id)}
+                                    <button 
+                                    onClick={() => restore(post.id)}
                                     className="px-3 py-1 rounded-md border text-sm bg-green-200">
                                         Restore
                                     </button>
@@ -257,6 +262,7 @@ export default function AdminBlogPage() {
                             <BlogCard 
                             key={post.id}
                             post={post}
+                            onOpen={() => openPost(post)}
                             onToggleStatus={toggleStatus}
                             onDelete={softDelete}
                             />

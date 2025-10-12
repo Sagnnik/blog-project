@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from pathlib import Path
 from pymongo.errors import DuplicateKeyError
+import httpx
 
 from deps import require_admin
 from db import db, doc_fix_ids
@@ -94,6 +95,43 @@ async def upload_assets(
     #     "link": public_url
     # })
     return {"link":public_url}
+
+
+@router.get("/assets/html/{slug}")
+async def serve_html(slug : str):
+
+    filename = f"{slug}-post.html"
+
+    asset = await db.assets.find_one({"filename": filename})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Metadata not found for this file")
+
+    if asset and asset.get("public_link"):
+        public_link = asset["public_link"]
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(public_link)
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=resp.status_code,
+                                        detail=f"Failed to fetch public_link: {public_link} (status {resp.status_code})")
+                html_content = resp.text
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Error fetching public_link: {e}")
+        
+        metadata = {
+            "filename": asset.get("filename"),
+            "public_link": public_link,
+            "uploaded_by": asset.get("uploaded_by"),
+            "created_at": asset.get("created_at"),
+            "caption": asset.get("caption"),
+            "post_id": asset.get("post_id"),
+        }
+    
+
+    return {"metadata": metadata, "html": html_content}
+
 
 # Add a route for saving satic html blog page
 @router.post("/assets/html")

@@ -186,3 +186,22 @@ async def restore_post(id:str, admin=Depends(require_admin)):
 
     post = await db.posts.find_one({"_id":oid})
     return doc_fix_ids(post)
+
+# Permanent delete (DELETE)
+@router.delete("/posts/{id}/delete")
+async def permanent_delete(id: str, admin=Depends(require_admin)):
+    try:
+        oid = ObjectId(id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    result = await db.posts.delete_one({"_id": oid})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    return {
+        "status": "success",
+        "message": f"Post with id {id} permanently deleted",
+        "deleted_by": admin["clerk_user_id"],
+        "deleted_at": datetime.now(timezone.utc)
+    }

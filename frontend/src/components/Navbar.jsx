@@ -14,7 +14,7 @@ export default function Navbar() {
                     </NavLink>
                 </div>
                 
-                <div className="flex gap-4 items-center text-lg">
+                <div className="flex gap-4 items-center text-lg font-mono">
                     <NavLink 
                     to="/"
                     className={({isActive}) =>

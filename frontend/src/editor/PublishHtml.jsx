@@ -204,7 +204,7 @@ export default function PublishHtml () {
                     type="text"
                     id="slug"
                     name="slug"
-                    placeholder="Enter the slug (Optional)"
+                    placeholder="Enter-the-slug-(Optional)"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
                     className="border mt-1 block w-full px-3 py-2 border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
