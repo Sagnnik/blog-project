@@ -4,6 +4,7 @@ import { useLocation, useParams } from 'react-router-dom';
 export default function PostPreview() {
   const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
   const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL || "http://localhost:8000";
+  const NPX_SERVER_URL = "http://localhost:8001";
   const {slug} = useParams();
   const location = useLocation();
 
@@ -35,16 +36,16 @@ export default function PostPreview() {
 
         const data = await res.json();
 
-        let baseHref = BACKEND_BASE_URL + "/";
-        if (data.metadata && data.metadata.public_link) {
-          try {
-            const u = new URL(data.metadata.public_link, BACKEND_BASE_URL);
-            u.pathname = u.pathname.replace(/\/[^/]*$/, "/"); 
-            baseHref = u.href;
-          } catch {
-            baseHref = BACKEND_BASE_URL + "/";
-          }
-        }
+        let baseHref = NPX_SERVER_URL+ "/html/" + data.metadata.filename;
+        // if (data.metadata && data.metadata.public_link) {
+        //   try {
+        //     const u = new URL(data.metadata.public_link, BACKEND_BASE_URL);
+        //     u.pathname = u.pathname.replace(/\/[^/]*$/, "/"); 
+        //     baseHref = u.href;
+        //   } catch {
+        //     baseHref = BACKEND_BASE_URL + "/";
+        //   }
+        // }
 
         const returnedHtml = data.html || "";
         const htmlWithBase = `<base href="${baseHref}">${returnedHtml}`;

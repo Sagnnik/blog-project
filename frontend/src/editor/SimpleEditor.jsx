@@ -8,7 +8,7 @@ export default function SimpleEditor({html, setHtml}) {
     const config = {
         placeholderText: "Start writing your blog post ... ",
         charCounterCount: true,
-        imageUploadURL: "http://localhost:8000/api/assets", // ?? Need to change this
+        imageUploadURL: "http://localhost:8000/api/assets",
         imageUploadMethod: "POST",
 
         requestHeaders: ADMIN_TOKEN ? { Authorization: `Bearer ${ADMIN_TOKEN}` } : {},

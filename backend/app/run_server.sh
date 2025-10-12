@@ -1,11 +1,9 @@
-@echo off
-echo Starting servers...
+!/usr/bin/env bash
+echo "Starting servers in new terminal windows..."
 
-:: Start uvicorn in a new window
-start "Uvicorn Server" cmd /k uvicorn main:app --reload
+gnome-terminal -- bash -c "echo 'Starting Uvicorn...'; uvicorn main:app --reload; exec bash"
 
-:: Start http-server in a new window
-start "HTTP Server" cmd /k npx http-server ./uploads -p 8001 --cors
 
-echo Both servers started in separate windows
-echo Close the windows to stop the servers
+gnome-terminal -- bash -c "echo 'Starting HTTP Server...'; npx http-server ./uploads -p 8001 --cors; exec bash"
+
+echo "Both servers started in separate windows!"

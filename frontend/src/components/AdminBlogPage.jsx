@@ -41,6 +41,7 @@ export default function AdminBlogPage() {
 
     const [nextId, setNextId] = useState(3);
     const [showDeleted, setShowDeleted] = useState(false);
+    const [deletingIds, setDeletingIds] = useState(new Set());
 
     useEffect(() => {
         async function fetchPost(params) {
@@ -209,6 +210,42 @@ export default function AdminBlogPage() {
         }
     }
 
+    const setDeleting = (id, val) => {
+        setDeletingIds(prev => {
+            const next = new Set(prev)
+            if (val) next.add(id)
+            else next.delete(id)
+            return next
+        })
+    }
+
+    async function permanentDelete(id) {
+        const ok = window.confirm("This will permanently delete the post. This action cannot be undone. Proceed?")
+        if (!ok) return
+        try {
+            setDeleting(id, true)
+            const res = await fetch(`http://localhost:8000/api/posts/${encodeURIComponent(id)}/delete`, {
+                method: "DELETE",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${ADMIN_TOKEN}`
+                },
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => null)
+                throw new Error(err?.detail || `Failed to delete (status ${res.status})`)
+            }
+            setPosts(prev => prev.filter(p => p.id !== id))
+        }
+        catch (error) {
+            console.error("Permanent delete failed:", error)
+            alert(error.message || "Failed to permanently delete post.")
+        } 
+        finally {
+            setDeleting(id, false)
+        }
+    }
+
     function openPost(post) {
         const slug = post.slug
         navigate(`/article/${slug}`, { state: {postId: post.id}});
@@ -220,57 +257,82 @@ export default function AdminBlogPage() {
     const deletedCount = posts.filter(p => p.is_deleted).length
 
     return (
-        <div className="min-h-screen bg-gray-50 text-gray-900">
-            <Navbar />
-            <main className="max-w-5xl mx-auto p-6  flex flex-col gap-6">
-                <header className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Admin-Dashboard</h1>
-                    <div className="flex gap-3">
-                        <button 
-                            onClick={createNew} 
-                            disabled={isCreating}
-                            className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition">New Post</button>
-                        <label className="flex items-center gap-2 text-sm bg-red-400 rounded-md px-3 py-1">
-                            <input type="checkbox" 
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+        <Navbar />
+        <main className="max-w-5xl mx-auto p-6 flex flex-col gap-6">
+            <header className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold">Admin-Dashboard</h1>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={createNew} 
+                        disabled={isCreating}
+                        className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition"
+                    >
+                        New Post
+                    </button>
+                    <label className="flex items-center gap-2 text-sm bg-red-400 rounded-md px-3 py-1">
+                        <input 
+                            type="checkbox" 
                             checked={showDeleted} 
-                            onChange={(e) => setShowDeleted(e.target.checked)}/>
-                            Show Deleted ({deletedCount})
-                        </label>
-                    </div>
-                </header>
-                <section className="flex flex-col gap-4">
-                    {visiblePosts.length === 0 && (
-                        <div className="text-center text-gray-500 py-12">No Posts yet Create One</div>
-                    )}
+                            onChange={(e) => setShowDeleted(e.target.checked)}
+                        />
+                        Show Deleted ({deletedCount})
+                    </label>
+                </div>
+            </header>
 
-                    {visiblePosts.map( post => (
-                        post.is_deleted ? (
-                            <div key={post.id} className="bg-red-50 border rounded-md p-4 flex items-center justify-between">
-                                <div>
-                                    <div className="font-semibold">{post.title} (is_deleted)</div>
-                                    <div className="text-xs text-gray-500">{post.date}</div>
+            <section className="flex flex-col gap-4">
+                {visiblePosts.length === 0 && (
+                    <div className="text-center text-gray-500 py-12">
+                        No Posts yet. Create one.
+                    </div>
+                )}
+
+                {visiblePosts.map((post) => (
+                    post.is_deleted ? (
+                        <div 
+                            key={post.id} 
+                            className="bg-red-50 border rounded-md p-4 flex items-center justify-between"
+                        >
+                            <div>
+                                <div className="font-semibold">
+                                    {post.title} (is_deleted)
                                 </div>
-                                <div className="flex gap-2">
-                                    <button 
-                                    onClick={() => restore(post.id)}
-                                    className="px-3 py-1 rounded-md border text-sm bg-green-200">
-                                        Restore
-                                    </button>
+                                <div className="text-xs text-gray-500">
+                                    {post.date}
                                 </div>
                             </div>
-                        ) : (
-                            <BlogCard 
+
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => restore(post.id)}
+                                    disabled={loadingIds.has(post.id)}
+                                    className="px-3 py-1 rounded-md border text-sm bg-green-200"
+                                >
+                                    Restore
+                                </button>
+
+                                <button
+                                    onClick={() => permanentDelete(post.id)}
+                                    disabled={deletingIds.has(post.id)}
+                                    className="px-3 py-1 rounded-md border text-sm bg-red-600 text-white hover:bg-red-500 transition"
+                                >
+                                    {deletingIds.has(post.id) ? "Deleting…" : "Delete permanently"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <BlogCard 
                             key={post.id}
                             post={post}
                             onOpen={() => openPost(post)}
                             onToggleStatus={toggleStatus}
                             onDelete={softDelete}
-                            />
-                        )
-                    ))}
-                </section>
-            </main>
-            
-        </div>
-    );
+                        />
+                    )
+                ))}
+            </section>
+        </main>
+    </div>
+);
 }
