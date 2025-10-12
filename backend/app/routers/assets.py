@@ -66,8 +66,12 @@ async def upload_assets(
         await out_files.write(contents)
 
     # Build a relative path and public url. Eg :- `/uploads/{filename}`
-    stored_path = f"/uploads/{filename}"
-    base_url = str(request.base_url).rstrip("/")
+    stored_path = f"/{filename}"
+    # have to change the base url to npx file server 
+    # server at http://127.0.0.1:8001
+    NPX_SERVER_URL = "http://127.0.0.1:8001"
+    base_url = NPX_SERVER_URL
+    #base_url = str(request.base_url).rstrip("/")
     public_url = f"{base_url}{stored_path}"
 
     #Insert Metadata into DB
@@ -106,8 +110,12 @@ async def serve_html(slug : str):
     if not asset:
         raise HTTPException(status_code=404, detail="Metadata not found for this file")
 
+
+    #cannot use the public link
+    # for now linking it to npx server at http://127.0.0.1:8001
+    NPX_SERVER_URL = "http://127.0.0.1:8001"
     if asset and asset.get("public_link"):
-        public_link = asset["public_link"]
+        public_link = f"{NPX_SERVER_URL}/html/{filename}"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(public_link)
