@@ -1,7 +1,7 @@
 import React from "react";
 import ToggleButton from "./ToggleButton";
 
-export default function BlogCard({ post, onOpen, onToggleStatus, onDelete }) {
+export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdit }) {
     if (post.deleted) return null;
     return (
         <article className="bg-white rounded-lg shadow-xl border-2 p-4 hover:shadow-md tansition-shadow w-full max-w-6xl mx-auto">
@@ -20,6 +20,10 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete }) {
                         <button onClick={() => onDelete(post.id)}
                         className="border-red-200 bg-red-50 px-3 py-1 rounded-md text-sm text-red-600 hover:cursor-pointer">
                             Delete
+                        </button>
+                        <button onClick={() => onEdit(post.id)}
+                        className="px-3 py-1 rounded-md border text-sm bg-yellow-100 hover:bg-yellow-200">
+                            Edit
                         </button>
                     </div>
                 </div>

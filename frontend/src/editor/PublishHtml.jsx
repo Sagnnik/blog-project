@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import SimpleEditor from "./SimpleEditor";
 import { slugify, buildFullHtml, parseTags } from './utils';
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate} from "react-router-dom";
 
 export default function PublishHtml () {
 
@@ -21,6 +21,53 @@ export default function PublishHtml () {
     const [publish, setPublish] = useState(false);
     const [saving, setSaving] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!postId) return;
+        let cancelled = false;
+
+        async function fetchPost() {
+            setLoading(true);
+            try {
+                const url = `http://localhost:8000/api/posts/${postId}`;
+                const res = await fetch(url, {
+                    headers: {
+                        "Authorization": `Bearer ${ADMIN_TOKEN}`
+                    }
+                });
+                if (!res.ok) {
+                    const txt = await res.text();
+                    throw new Error(`Failed to fetch post: ${res.status} ${txt || ""}`);
+                }
+                const data = await res.json();
+                if (cancelled) return;
+
+                if (data.title) setTitle(data.title);
+                if (data.slug) setSlug(data.slug);
+                if (data.summary) setSummary(data.summary);
+                if(Array.isArray(data.tags)) {
+                    setTagsText(data.tags.join(", "))
+                }
+                const possibleHtml = data.raw;
+                if (possibleHtml) {
+                    setHtml(possibleHtml);
+                }
+            }
+            catch(err) {
+                console.error("Error fetching post:", err);
+                if (err.stack) console.error(err.stack);
+               alert("Error loading post for edit: " + (err.message || err));
+            }
+            finally{
+                if (!cancelled) setLoading(false);
+            }
+            
+        }
+        fetchPost();
+        return () => {cancelled = true;}
+
+    }, [postId, BACKEND_BASE_URL, ADMIN_TOKEN])
 
     async function handleCreate() {
         try {
@@ -67,6 +114,7 @@ export default function PublishHtml () {
                 slug: slug.trim() || slugify(title),
                 tags: parseTags(tagsText),
                 summary: summary.trim(),
+                raw: html,
                 body: buildFullHtml(html),
                 status: "draft"
             }

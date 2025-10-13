@@ -328,6 +328,7 @@ export default function AdminBlogPage() {
                             onOpen={() => openPost(post)}
                             onToggleStatus={toggleStatus}
                             onDelete={softDelete}
+                            onEdit={(id) => navigate(`/admin/publish/${id}`)}
                         />
                     )
                 ))}
