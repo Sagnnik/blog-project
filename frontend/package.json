@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
+    "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "font-awesome": "^4.7.0",
     "froala-editor": "^4.6.2",
+    "lucide-react": "^0.545.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-froala-wysiwyg": "^4.6.2",

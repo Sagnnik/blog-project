@@ -1,15 +1,16 @@
 import React from "react";
 
-// ?? props: onToggle and handle onToggle in Button
-export default function ToggleButton({isPublished, onToggle}) {
-    return(
-        <button onClick={onToggle}
-        className={`px-3 py-1 rounded-md text-sm font-medium border transition-all` + 
-            (isPublished? 'bg-green-50 border-green-300 text-green-700 hover:cursor-pointer':
-                'bg-yellow-50 border-amber-300 text-amber-700 hover:cursor-pointer'
-            )
-        }>
-            {isPublished? "Published": "Draft"}
-        </button>
-    );
+export default function ToggleButton({ isPublished, onToggle }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`px-3 py-1 rounded-md text-sm font-medium border transition-all duration-200
+        ${isPublished
+          ? "bg-[#1a1a1a] border-terra text-terra hover:bg-[#2a2a2a]"
+          : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:bg-neutral-800 hover:text-terra-light"
+        }`}
+    >
+      {isPublished ? "Published" : "Draft"}
+    </button>
+  );
 }

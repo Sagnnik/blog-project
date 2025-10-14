@@ -1,4 +1,13 @@
 @import "tailwindcss";
+
+@theme {
+  --color-terra: #da7756; 
+  --color-terra-light: #e38867; 
+  --color-terra-dark: #d16745; 
+  --color-danger: #c23232;
+  --color-danger-hover: #f45959;
+}
+
 pre code,
 pre {
   background-color: #06203a; 

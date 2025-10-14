@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ToggleButton from "./ToggleButton";
+import Button from "./Button";
 
 export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdit }) {
     const [cardImage, setCardImage] = useState(null);
@@ -52,7 +53,7 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdi
     }, [post]);
     if (post.deleted) return null;
     return (
-        <article className="bg-white rounded-lg shadow-xl border-2 p-4 hover:shadow-md tansition-shadow w-full max-w-6xl mx-auto">
+        <article className="bg-neutral-800/60 shadow-xl border-none p-4 hover:shadow-md tansition-shadow w-full max-w-6xl mx-auto">
             <div className="flex items-start">
                 <div className="w-2/3 pr-4 flex flex-col justify-between h-full">
                     <div onClick={onOpen} role="link" tabIndex={0}>
@@ -65,14 +66,16 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdi
                         isPublished={post.status === 'published'}
                         onToggle= {() => onToggleStatus(post.id)}
                         />
-                        <button onClick={() => onDelete(post.id)}
-                        className="border-red-200 bg-red-50 px-3 py-1 rounded-md text-sm text-red-600 hover:cursor-pointer">
+                        <Button
+                        onClick={() => onDelete(post.id)}
+                        variant="danger">
                             Delete
-                        </button>
-                        <button onClick={() => onEdit(post.id)}
-                        className="px-3 py-1 rounded-md border text-sm bg-yellow-100 hover:bg-yellow-200">
+                        </Button>
+                        <Button
+                        onClick={() => onEdit(post.id)}
+                        variant="subtle">
                             Edit
-                        </button>
+                        </Button>
                     </div>
                 </div>
                 <div

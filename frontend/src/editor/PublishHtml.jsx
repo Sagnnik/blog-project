@@ -316,7 +316,7 @@ export default function PublishHtml () {
     
     return (
         <div className="max-w-5xl mx-auto my-10 px-4">
-            <h1 className="text-3xl font-extrabold text-gray-900 pb-2 mb-6 border-b border-gray-200">Create A New Post</h1>
+            <h1 className="text-3xl font-extrabold font-mono text-gray-900 pb-2 mb-6 border-b border-gray-200">Create A New Post</h1>
 
              <div className="mb-4">
                 <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -409,8 +409,6 @@ export default function PublishHtml () {
                     </span>
                     </div>
                 </div>
-
-                {/* ✅ Preview Section */}
                 {coverPreviewUrl && (
                     <div className="mt-4">
                     <p className="text-sm text-gray-700 mb-2">Preview:</p>

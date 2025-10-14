@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import BlogCard from "../components/BlogCard";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
+import Button from "../components/Button";
+import { Plus } from "lucide-react";
+import ShowDeletedToggle from "../components/ShowDeleted";
 
 const initialPosts = [
 {
@@ -253,31 +256,30 @@ export default function AdminBlogPage() {
 
 
 
-    const visiblePosts = posts.filter(p => (showDeleted? true: !p.is_deleted))  // ?? Not needed DB query will handle this
+    const visiblePosts = posts.filter(p => (showDeleted? true: !p.is_deleted))
     const deletedCount = posts.filter(p => p.is_deleted).length
 
     return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-black text-gray-300">
         <Navbar />
         <main className="max-w-5xl mx-auto p-6 flex flex-col gap-6">
             <header className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Admin-Dashboard</h1>
                 <div className="flex gap-3">
-                    <button 
-                        onClick={createNew} 
-                        disabled={isCreating}
-                        className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition"
+                    <Button
+                    onClick={createNew}
+                    loading={isCreating}
+                    variant="outline"
+                    icon={Plus}
                     >
                         New Post
-                    </button>
-                    <label className="flex items-center gap-2 text-sm bg-red-400 rounded-md px-3 py-1">
-                        <input 
-                            type="checkbox" 
-                            checked={showDeleted} 
-                            onChange={(e) => setShowDeleted(e.target.checked)}
-                        />
-                        Show Deleted ({deletedCount})
-                    </label>
+                    </Button>
+
+                    <ShowDeletedToggle
+                        showDeleted={showDeleted}
+                        setShowDeleted={setShowDeleted}
+                        deletedCount={deletedCount}/>
+
                 </div>
             </header>
 
@@ -292,33 +294,33 @@ export default function AdminBlogPage() {
                     post.is_deleted ? (
                         <div 
                             key={post.id} 
-                            className="bg-red-50 border rounded-md p-4 flex items-center justify-between"
+                            className="bg-neutral-700 border-none rounded-md p-4 flex items-center justify-between"
                         >
                             <div>
                                 <div className="font-semibold">
                                     {post.title} (is_deleted)
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-gray-300">
                                     {post.date}
                                 </div>
                             </div>
 
                             <div className="flex gap-2">
-                                <button 
+                                <Button 
                                     onClick={() => restore(post.id)}
                                     disabled={loadingIds.has(post.id)}
-                                    className="px-3 py-1 rounded-md border text-sm bg-green-200"
+                                    variant="primary"
                                 >
                                     Restore
-                                </button>
+                                </Button>
 
-                                <button
+                                <Button
                                     onClick={() => permanentDelete(post.id)}
                                     disabled={deletingIds.has(post.id)}
-                                    className="px-3 py-1 rounded-md border text-sm bg-red-600 text-white hover:bg-red-500 transition"
+                                    variant="danger"
                                 >
                                     {deletingIds.has(post.id) ? "Deleting…" : "Delete permanently"}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ) : (
