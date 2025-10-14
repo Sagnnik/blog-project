@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import BlogCard from "./BlogCard";
-import Navbar from "./Navbar";
+import BlogCard from "../components/BlogCard";
+import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
 
 const initialPosts = [

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile, Depends, Request
+from fastapi import APIRouter, HTTPException, File, Form, UploadFile, Depends, Request
 from fastapi.responses import JSONResponse
 from uuid import uuid4
 import os
@@ -8,6 +8,7 @@ from bson import ObjectId
 from pathlib import Path
 from pymongo.errors import DuplicateKeyError
 import httpx
+from typing import Optional
 
 from deps import require_admin
 from db import db, doc_fix_ids
@@ -20,37 +21,27 @@ HTML_UPLOAD_SUBDIR = "html"
 ALLOWED_HTML_TYPES = {"text/html", "application/xhtml+xml"}
 ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"}
 MAX_FILE_SIZE = 10*1024*1024
+NPX_SERVER_URL = "http://127.0.0.1:8001"
 
 
-# Re-writing the upload_assets route
 @router.post("/assets")
 async def upload_assets(
     request: Request,
     file: UploadFile = File(...),
-    alt: str = None,
-    caption: str=None,
+    alt: Optional[str] = Form(None),
+    caption: Optional[str] = Form(None),
+    post_id: Optional[str] = Form(None),
     admin=Depends(require_admin)
 ):
-    """
-    Uplaods an image from the editor:
-    - validate the content-type and size
-    - save file to disk with uuid filename
-    - store asset metadata in DB
-    - return an asset_id, relative_path, filename and a public_link for the editor
-    """
 
-    # Basic validation
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
     
-    # validate content type
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported File type")
     
-    #Read the file bytes
+
     contents = await file.read()
-    # if len(contents) > MAX_FILE_SIZE:
-    #    raise HTTPException(status_code=400, detail="File Too Large")
 
     ext = Path(file.filename).suffix or ".png"
     uid = uuid4().hex
@@ -67,11 +58,8 @@ async def upload_assets(
 
     # Build a relative path and public url. Eg :- `/uploads/{filename}`
     stored_path = f"/{filename}"
-    # have to change the base url to npx file server 
-    # server at http://127.0.0.1:8001
-    NPX_SERVER_URL = "http://127.0.0.1:8001"
+    
     base_url = NPX_SERVER_URL
-    #base_url = str(request.base_url).rstrip("/")
     public_url = f"{base_url}{stored_path}"
 
     #Insert Metadata into DB
@@ -82,23 +70,71 @@ async def upload_assets(
         "mime": file.content_type,
         "size": len(contents),
         "uploaded_by": admin.get("clerk_user_id"),
-        "post_id": None,
-        "used_by_posts": [],
+        "post_id": post_id if post_id else None,
+        "used_by_posts": bool(post_id),
         "alt": alt,
         "caption": caption,
         "created_at": now,
     }
 
     result = await db.assets.insert_one(doc)
-    doc["_id"] = result.inserted_id
+    asset_id_str = str(result.inserted_id)
+    await db.assets.update_one(
+        {"_id": result.inserted_id},
+        {"$set": {"asset_id": asset_id_str, "public_link": public_url}}
+    )
 
-    # return JSONResponse({
-    #     "asset_id": str(result.inserted_id),
-    #     "path": stored_path,
-    #     "filename": filename,
-    #     "link": public_url
-    # })
-    return {"link":public_url}
+    if post_id:
+        try:
+            post_oid = ObjectId(post_id)
+            post = await db.posts.find_one({"_id":post_oid})
+
+            if post:
+                # soft deleteing the old cover image
+                old_cover = post.get("cover_image")
+                if old_cover and isinstance(old_cover, dict):
+                    old_asset_id = old_cover.get("asset_id")
+                    old_path = old_cover.get("/path")
+                    if old_asset_id:
+                        try: 
+                            await db.assets.update_one(
+                                {"asset_id": old_asset_id},
+                                {"$set": {"used_by_posts": False}}
+                            )
+                        except Exception:
+                            pass
+
+                cover_obj = {
+                    "path": stored_path,
+                    "filename": filename,
+                    "mime": file.content_type,
+                    "size": len(contents),
+                    "uploaded_by": admin.get("clerk_user_id"),
+                    "post_id": post_id if post_id else None,
+                    "used_by_posts": bool(post_id),
+                    "alt": alt,
+                    "caption": caption,
+                    "created_at": now,
+                    "public_link": public_url,
+                    "asset_id": asset_id_str,
+                }
+
+                await db.posts.update_one(
+                    {"_id": post_oid},
+                    {"$set" : {"cover_image": cover_obj, "updated_at": now}}
+                )
+
+            else:
+                raise HTTPException(status_code=404, detail="Post ID not found" )
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="Post Id format is incorrect")
+
+
+    return JSONResponse({
+        "asset_id": str(result.inserted_id),
+        "link":public_url
+    })
 
 
 @router.get("/assets/html/{slug}")
@@ -113,7 +149,6 @@ async def serve_html(slug : str):
 
     #cannot use the public link
     # for now linking it to npx server at http://127.0.0.1:8001
-    NPX_SERVER_URL = "http://127.0.0.1:8001"
     if asset and asset.get("public_link"):
         public_link = f"{NPX_SERVER_URL}/html/{filename}"
         try:

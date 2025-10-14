@@ -10,17 +10,21 @@ class ImageMeta(BaseModel):
     alt: Optional[str] = None
     caption: Optional[str] = None
     uploaded_at: datetime
+    uploaded_by: Optional[str] = None
+    mime: Optional[str] = None
     used_by_post: bool = False
     post_id: Optional[str] = None
+    public_link: Optional[str] = None
 
 class PostCreate(BaseModel):
     title: Optional[str] = None
     slug: Optional[str] = None
     summary: Optional[str] = None
+    raw: Optional[str] = None
     body: Optional[str] = None
     html_id: Optional[str] = None
     html_link: Optional[str] = None
-    cover_image: Optional[str] = None 
+    cover_image: Optional[ImageMeta] = None 
     images: Optional[List[ImageMeta]] = Field(default_factory=list)
     tags: Optional[List[str]] = Field(default_factory=list)
     meta: Optional[dict] = Field(default_factory=dict)

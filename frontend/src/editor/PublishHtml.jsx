@@ -23,6 +23,12 @@ export default function PublishHtml () {
     const [creating, setCreating] = useState(false);
     const [loading, setLoading] = useState(false);
 
+
+    //Cover image states
+    const [coverImageFile, setCoverImageFile] = useState(null);
+    const [coverImageAsset, setCoverImageAsset] = useState(null);
+    const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
+
     useEffect(() => {
         if (!postId) return;
         let cancelled = false;
@@ -44,15 +50,18 @@ export default function PublishHtml () {
                 if (cancelled) return;
 
                 if (data.title) setTitle(data.title);
-                if (data.slug) setSlug(data.slug);
                 if (data.summary) setSummary(data.summary);
-                if(Array.isArray(data.tags)) {
+                if (Array.isArray(data.tags)) {
                     setTagsText(data.tags.join(", "))
                 }
-                const possibleHtml = data.raw;
-                if (possibleHtml) {
-                    setHtml(possibleHtml);
-                }
+                if (data.raw) setHtml(data.raw);
+                if (data.cover_image){
+                    const { asset_id: coverId, public_link: coverLink } = data.cover_image;
+                    if (coverId || coverLink) {
+                        setCoverImageAsset({ id: coverId, link: coverLink });
+                        setCoverPreviewUrl(coverLink);
+                    }
+                }   
             }
             catch(err) {
                 console.error("Error fetching post:", err);
@@ -67,11 +76,93 @@ export default function PublishHtml () {
         fetchPost();
         return () => {cancelled = true;}
 
-    }, [postId, BACKEND_BASE_URL, ADMIN_TOKEN])
+    }, [postId, BACKEND_BASE_URL, ADMIN_TOKEN]);
+
+    function handleCoverFileChange(e) {
+        const file = e?.target?.files?.[0]; 
+        if (!file) {
+            if (coverPreviewUrl && coverPreviewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(coverPreviewUrl);
+            }
+            setCoverImageFile(null);
+            setCoverPreviewUrl('');
+            return;
+        }
+        if (coverPreviewUrl && coverPreviewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(coverPreviewUrl);
+        }
+
+        setCoverImageFile(file);
+        console.log(file);
+        setCoverPreviewUrl(URL.createObjectURL(file));
+        setCoverImageAsset(null); 
+    }
+
+    function handleRemoveCover() {
+        if (coverPreviewUrl && coverPreviewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(coverPreviewUrl);
+        }
+        setCoverImageFile(null);
+        setCoverPreviewUrl('');
+        setCoverImageAsset(null);
+    }
+
+    async function uploadCoverImage() {
+        if (!coverImageFile) {
+            return coverImageAsset || null;
+        }
+
+        const form = new FormData();
+        form.append("file", coverImageFile, coverImageFile.name);
+        form.append("alt",  `Cover image for ${title || "post"}`);
+        form.append("caption", title || "");
+        if (postId) form.append("post_id", postId);
+        console.log(form);
+
+        const url = `http://localhost:8000/api/assets/`;
+        const res = await fetch(url, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${ADMIN_TOKEN}` },
+            body: form
+        });
+
+        if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(`Cover image upload failed: ${res.status} ${txt}`);
+        }
+        const data = await res.json();
+        const id = data.id || data.asset_id || data.assetId;
+        const link = data.link || data.public_link || data.url;
+
+        if (link) {
+            try {
+                await fetch(link).catch((e) => {
+                    console.warn("fetch(public link) warning:", e);
+                });
+            }
+            catch (e) {
+            console.warn("fetch(public link) error:", e);
+            }
+        }
+        const asset = { id, link };
+        setCoverImageAsset(asset);
+        setCoverImageFile(null);
+        return asset;
+    }
 
     async function handleCreate() {
         try {
             setCreating(true);
+
+            let coverAsset = null;
+            try {
+                coverAsset = await uploadCoverImage();
+            }
+            catch (imgErr) {
+                console.error("Image Upload error: ", imgErr);
+                alert("Cover Image Upload failed: " + (imgErr.message || imgErr));
+                coverAsset = null;
+            }
 
             const payload = {
                 title: title.trim(),
@@ -96,7 +187,7 @@ export default function PublishHtml () {
             }
         }
         catch(err) {
-            console.error("handleCreat Error:", err);
+            console.error("handleCreate Error:", err);
             alert("Error creating post: " + (err.message || err));
             throw err;
         }
@@ -107,8 +198,7 @@ export default function PublishHtml () {
 
     async function handleSave() {
         try {
-            setSaving(true)
-
+            setSaving(true);
             const payload = {
                 title: title.trim(),
                 slug: slug.trim() || slugify(title),
@@ -117,7 +207,7 @@ export default function PublishHtml () {
                 raw: html,
                 body: buildFullHtml(html),
                 status: "draft"
-            }
+            };
 
             const res = await fetch(`http://localhost:8000/api/posts/${postId}`, {
                 method:"PATCH",
@@ -289,6 +379,56 @@ export default function PublishHtml () {
                 />
             </div>
 
+            <div className="mb-6">
+                <label
+                    htmlFor="coverImage"
+                    className="block text-sm font-medium text-gray-700 mb-1">
+                    Cover Image
+                </label>
+
+                <div className="flex items-center space-x-4">
+                    <input 
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverFileChange}
+                    />
+
+                    <div className="flex items-center space-x-3">
+                    <button
+                        onClick={handleRemoveCover}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-500">
+                        Remove
+                    </button>
+
+                    <span className="text-sm text-gray-600">
+                        {coverImageAsset
+                        ? "Existing Cover Image Attached"
+                        : coverImageFile
+                        ? coverImageFile.name
+                        : "No Cover Image Attached"}
+                    </span>
+                    </div>
+                </div>
+
+                {/* ✅ Preview Section */}
+                {coverPreviewUrl && (
+                    <div className="mt-4">
+                    <p className="text-sm text-gray-700 mb-2">Preview:</p>
+                    <div className="border rounded-lg overflow-hidden shadow-sm w-1/2">
+                        <img
+                        src={coverPreviewUrl}
+                        alt="Cover preview"
+                        className="object-cover w-full h-40"
+                        />
+                    </div>
+                    </div>
+                )}
+
+                <p className="text-xs text-gray-500 mt-2">
+                    Recommended: landscape images. Will show on blog card and post top.
+                </p>
+            </div>
+            
             <div className="mb-4">
                 <button 
                 onClick={handleCreate}

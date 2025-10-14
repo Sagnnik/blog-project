@@ -1,7 +1,55 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ToggleButton from "./ToggleButton";
 
 export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdit }) {
+    const [cardImage, setCardImage] = useState(null);
+    const [imageLoading, setImageLoading] = useState(false);
+    const NPX_SERVER_URL = "http://localhost:8001";
+
+    function getImageUrl() {
+        if(!post?.cover_image) return null;
+        const public_link = post.cover_image.public_link;
+        return public_link;
+    }
+
+    async function handleImage() {
+        const url = getImageUrl();
+        if (!url) {
+            setCardImage(null);
+            return;
+        }
+        try {
+            setImageLoading(true);
+            const res = await fetch(url, { mode: "cors"});
+            if(!res.ok) {
+                const txt = await res.text();
+                throw new Error(`Failed to fetch Cover Image ${res.status} ${txt}`);
+            }
+
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            if (cardImage && cardImage.startsWith("blob:")) {
+                URL.revokeObjectURL(cardImage);
+            }
+            setCardImage(objectUrl)
+        }
+        catch(err) {
+            console.error("Error fetching Cover Image: ", err);
+            setCardImage(null);
+        }
+        finally{
+            setImageLoading(false);
+        }    
+    }
+
+    useEffect(() => {
+        handleImage();
+        return () => {
+            if (cardImage && cardImage.startsWith("blob:")){
+                URL.revokeObjectURL(cardImage);
+            }
+        };
+    }, [post]);
     if (post.deleted) return null;
     return (
         <article className="bg-white rounded-lg shadow-xl border-2 p-4 hover:shadow-md tansition-shadow w-full max-w-6xl mx-auto">
@@ -32,11 +80,17 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdi
                 role="link" 
                 tabIndex={0} 
                 className="w-1/3 flex-shrink-0 h-40">  
-                    <img src="src/assets/img1.jpg" alt="nothing" 
-                    className="w-full h-full object-cover rounded-md border hover:cursor-pointer"/>
+                    {imageLoading? (
+                        <div className="w-full h-full flex items-center justify-center rounded-md border bg-gray-50">Loading…</div>
+                    ): (
+                        <img 
+                        src={cardImage || "src/assets/img1.jpg"}
+                        alt={post?.cover_image?.alt || "Cover Image"} 
+                        className="w-full h-full object-cover rounded-md border hover:cursor-pointer"/>
+                        )
+                    }
                 </div>
-            </div>
-            
+            </div>  
         </article>
     );
 }
