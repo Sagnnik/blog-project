@@ -292,48 +292,67 @@ export default function AdminBlogPage() {
 
                 {visiblePosts.map((post) => (
                     post.is_deleted ? (
-                        <div 
-                            key={post.id} 
-                            className="bg-neutral-700 border-none rounded-md p-4 flex items-center justify-between"
+                        <div
+                        key={post.id}
+                        className="bg-neutral-800/60 border border-neutral-700/60 rounded-md p-4 flex items-center justify-between shadow-md hover:shadow-lg hover:bg-neutral-800/80 transition-all duration-200"
                         >
-                            <div>
-                                <div className="font-semibold">
-                                    {post.title} (is_deleted)
-                                </div>
-                                <div className="text-xs text-gray-300">
-                                    {post.date}
-                                </div>
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-200 text-base">
+                                {post.title}
+                            </h3>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-400/30 uppercase tracking-wide">
+                                Deleted
+                            </span>
                             </div>
+                            <p className="text-xs text-gray-400 mt-1">
+                            {new Date(post.date).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                            })}
+                            </p>
+                        </div>
 
-                            <div className="flex gap-2">
-                                <Button 
-                                    onClick={() => restore(post.id)}
-                                    disabled={loadingIds.has(post.id)}
-                                    variant="primary"
-                                >
-                                    Restore
-                                </Button>
+                        <div className="flex gap-2">
+                            <button
+                            onClick={() => restore(post.id)}
+                            disabled={loadingIds.has(post.id)}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                                loadingIds.has(post.id)
+                                ? "bg-neutral-700 text-gray-400 cursor-not-allowed"
+                                : "bg-green-600/20 text-green-400 hover:bg-green-600/30 hover:text-green-300"
+                            }`}
+                            >
+                            {loadingIds.has(post.id) ? "Restoring…" : "Restore"}
+                            </button>
 
-                                <Button
-                                    onClick={() => permanentDelete(post.id)}
-                                    disabled={deletingIds.has(post.id)}
-                                    variant="danger"
-                                >
-                                    {deletingIds.has(post.id) ? "Deleting…" : "Delete permanently"}
-                                </Button>
-                            </div>
+                            <button
+                            onClick={() => permanentDelete(post.id)}
+                            disabled={deletingIds.has(post.id)}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                                deletingIds.has(post.id)
+                                ? "bg-neutral-700 text-gray-400 cursor-not-allowed"
+                                : "bg-red-600/20 text-red-400 hover:bg-red-600/30 hover:text-red-300"
+                            }`}
+                            >
+                            {deletingIds.has(post.id)
+                                ? "Deleting…"
+                                : "Delete Permanently"}
+                            </button>
+                        </div>
                         </div>
                     ) : (
-                        <BlogCard 
-                            key={post.id}
-                            post={post}
-                            onOpen={() => openPost(post)}
-                            onToggleStatus={toggleStatus}
-                            onDelete={softDelete}
-                            onEdit={(id) => navigate(`/admin/publish/${id}`)}
+                        <BlogCard
+                        key={post.id}
+                        post={post}
+                        onOpen={() => openPost(post)}
+                        onToggleStatus={toggleStatus}
+                        onDelete={softDelete}
+                        onEdit={(id) => navigate(`/admin/publish/${id}`)}
                         />
                     )
-                ))}
+                    ))}
             </section>
         </main>
     </div>
