@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import SimpleEditor from "./SimpleEditor";
 import { slugify, buildFullHtml, parseTags } from './utils';
 import { useParams, useNavigate} from "react-router-dom";
+import Button from "../components/Button";
+import Navbar from "../components/Navbar";
 
 export default function PublishHtml () {
 
@@ -315,11 +317,13 @@ export default function PublishHtml () {
     }
     
     return (
-        <div className="max-w-5xl mx-auto my-10 px-4">
-            <h1 className="text-3xl font-extrabold font-mono text-gray-900 pb-2 mb-6 border-b border-gray-200">Create A New Post</h1>
+        <div className="bg-black/90">
+            <Navbar />
+        <div className="max-w-5xl mx-auto my-10 px-4 text-gray-100">
+            <h1 className="text-3xl font-extrabold font-mono text-gray-300 pb-2 mb-6 border-b border-gray-200">Create A New Post</h1>
 
              <div className="mb-4">
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1">
                     Title
                 </label>
                 <input 
@@ -328,14 +332,14 @@ export default function PublishHtml () {
                 onChange={(e) => setTitle(e.target.value)}
                 id="title"
                 name="title"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 placeholder-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-terra focus:border-terra sm:text-sm"
                 placeholder="Enter the post title" 
                 />
             </div>
 
             <div className="flex flex-col sm:flex-row sm:space-x-4 mb-6">
                 <div className="w-full sm:w-1/2 mb-4 sm:mb-0">
-                    <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="slug" className="block text-sm font-medium text-gray-300 mb-1">
                         Slug
                     </label>
                     <input 
@@ -345,11 +349,11 @@ export default function PublishHtml () {
                     placeholder="Enter-the-slug-(Optional)"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
-                    className="border mt-1 block w-full px-3 py-2 border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" 
+                    className="border mt-1 block w-full px-3 py-2 border-gray-300 placeholder-gray-300 rounded-md focus:outline-none focus:ring-terra focus:border-terra sm:text-sm" 
                     />    
                 </div>
                 <div className="w-full sm:w-1/2">
-                    <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="tags" className="block text-sm font-medium text-gray-300 mb-1">
                         Tags
                     </label>
                     <input 
@@ -359,13 +363,13 @@ export default function PublishHtml () {
                     value={tagsText}
                     onChange={(e) => setTagsText(e.target.value)} 
                     placeholder="eg. tag1, tag2"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 placeholder-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-terra focus:border-terra sm:text-sm"
                     />
                 </div>
             </div>
 
             <div className="mb-4">
-                <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="summary" className="block text-sm font-medium text-gray-300 mb-1">
                     Summary
                 </label>
                 <textarea 
@@ -375,14 +379,14 @@ export default function PublishHtml () {
                 placeholder="Short Summary shown on Blog Cards"
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 placeholder-gray-300 rounded-md focus:outline-none focus:ring-terra focus:border-terra sm:text-sm"
                 />
             </div>
 
             <div className="mb-6">
                 <label
                     htmlFor="coverImage"
-                    className="block text-sm font-medium text-gray-700 mb-1">
+                    className="block text-sm font-medium text-gray-300 mb-1">
                     Cover Image
                 </label>
 
@@ -394,13 +398,13 @@ export default function PublishHtml () {
                     />
 
                     <div className="flex items-center space-x-3">
-                    <button
-                        onClick={handleRemoveCover}
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-500">
+                    <Button
+                    onClick={handleRemoveCover}
+                    variant="danger">
                         Remove
-                    </button>
+                    </Button>
 
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-200">
                         {coverImageAsset
                         ? "Existing Cover Image Attached"
                         : coverImageFile
@@ -411,7 +415,7 @@ export default function PublishHtml () {
                 </div>
                 {coverPreviewUrl && (
                     <div className="mt-4">
-                    <p className="text-sm text-gray-700 mb-2">Preview:</p>
+                    <p className="text-sm text-gray-300 mb-2">Preview:</p>
                     <div className="border rounded-lg overflow-hidden shadow-sm w-1/2">
                         <img
                         src={coverPreviewUrl}
@@ -422,31 +426,31 @@ export default function PublishHtml () {
                     </div>
                 )}
 
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-400 mt-2">
                     Recommended: landscape images. Will show on blog card and post top.
                 </p>
             </div>
             
             <div className="mb-4">
-                <button 
+                <Button 
                 onClick={handleCreate}
                 disabled={creating}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-500">
+                variant="primary">
                     {creating? "Creating...": "Create Post"}
-                </button>
-                {postId && <span className="ml-3 text-sm text-gray-600">Post ID: {postId}</span>}
+                </Button>
+                {postId && <span className="ml-3 text-sm text-gray-400">Post ID: {postId}</span>}
             </div>
 
             <SimpleEditor html={html} setHtml={setHtml}/>
 
             <div className="flex justify-start mt-4 gap-3">
-                <button 
+                <Button 
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-500"
+                variant="primary"
                 >
                     {saving? "Saving ...": "Save"}
-                </button>
+                </Button>
             </div>
 
             <div style={{ marginTop: 18 }}>
@@ -460,9 +464,10 @@ export default function PublishHtml () {
             <button 
             onClick={handlePublish}
             disabled={publish}
-            className='bg-green-500 hover:bg-green-600 text-white mt-4 font-bold py-2 px-4 rounded-lg cursor-pointer transition duration-300 ease-in-out'>
+            className='bg-green-800 hover:bg-green-700 text-white mt-4 font-bold py-2 px-4 rounded-lg cursor-pointer transition duration-300 ease-in-out'>
                 {publish? "Publishing ...":"Publish"}
             </button>
+        </div>
         </div>
     );
 }

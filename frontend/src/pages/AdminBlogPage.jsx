@@ -260,9 +260,9 @@ export default function AdminBlogPage() {
     const deletedCount = posts.filter(p => p.is_deleted).length
 
     return (
-    <div className="min-h-screen bg-black text-gray-300">
+    <div className="min-h-screen bg-black/95 text-gray-300">
         <Navbar />
-        <main className="max-w-5xl mx-auto p-6 flex flex-col gap-6">
+        <main className="max-w-6xl mx-auto p-6 flex flex-col gap-6">
             <header className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Admin-Dashboard</h1>
                 <div className="flex gap-3">

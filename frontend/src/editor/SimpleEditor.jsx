@@ -6,6 +6,7 @@ export default function SimpleEditor({html, setHtml}) {
     const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
 
     const config = {
+        theme: 'dark',
         placeholderText: "Start writing your blog post ... ",
         charCounterCount: true,
         imageUploadURL: "http://localhost:8000/api/assets",

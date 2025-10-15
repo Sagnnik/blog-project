@@ -110,20 +110,22 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdi
 
     return (
         <article
-            className={`bg-neutral-800/60 shadow-xl p-0 overflow-hidden w-full max-w-6xl mx-auto rounded-md ${CARD_HEIGHT_CLASS}`}
+            className={`bg-neutral-800/70 shadow-xl p-0 overflow-hidden w-full max-w-6xl mx-auto rounded-md ${CARD_HEIGHT_CLASS}`}
             role="article"
         >
             <div className="flex h-full">
                 <div className="w-2/3 pr-4 flex flex-col justify-between p-4">
                     <div onClick={onOpen} role="link" tabIndex={0}>
-                        <h3 className="text-xl font-semibold mb-1 hover:cursor-pointer hover:underline hover:underline-offset-4 hover:text-terra-dark">
+                        <h3 className="text-lg font-semibold font-roboto mb-1 hover:cursor-pointer hover:underline hover:underline-offset-4 hover:text-terra-dark">
                             {post.title}
                         </h3>
-                        <p className="text-sm text-gray-500 mb-2">
+                        <p className="text-xs text-gray-500 mb-1">
                             {new Date(post.created_at).toLocaleDateString("en-IN", {
                                 day: "2-digit",
                                 month: "short",
                                 year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
                                 }
                             )}
                         </p>

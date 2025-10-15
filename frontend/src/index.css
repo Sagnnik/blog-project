@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -6,6 +7,12 @@
   --color-terra-dark: #d16745; 
   --color-danger: #c23232;
   --color-danger-hover: #f45959;
+  --font-roboto: "Roboto"
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
 pre code,

@@ -6,7 +6,7 @@ export default function Navbar() {
   const activeClasses = "text-terra font-semibold underline";
 
   return (
-    <nav className="w-full bg-neutral-800/60 backdrop-blur-sm border-b border-gray-800 py-3 px-6 text-gray-200">
+    <nav className="w-full bg-neutral-800/70 backdrop-blur-sm border-b border-gray-800 py-3 px-6 text-gray-200">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         
         <div className="text-3xl font-bold font-mono text-terra">
