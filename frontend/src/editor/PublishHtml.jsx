@@ -9,7 +9,6 @@ export default function PublishHtml () {
 
     const navigate = useNavigate();
     const {postId} = useParams();
-    console.log(postId)
 
     const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
     const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
@@ -30,6 +29,7 @@ export default function PublishHtml () {
     const [coverImageFile, setCoverImageFile] = useState(null);
     const [coverImageAsset, setCoverImageAsset] = useState(null);
     const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
+    const [coverImageCaption, setCoverImageCaption] = useState("");
 
     useEffect(() => {
         if (!postId) return;
@@ -58,10 +58,13 @@ export default function PublishHtml () {
                 }
                 if (data.raw) setHtml(data.raw);
                 if (data.cover_image){
-                    const { asset_id: coverId, public_link: coverLink } = data.cover_image;
+                    const { asset_id: coverId, public_link: coverLink, caption } = data.cover_image;
                     if (coverId || coverLink) {
                         setCoverImageAsset({ id: coverId, link: coverLink });
                         setCoverPreviewUrl(coverLink);
+                    }
+                    if (caption) {
+                        setCoverImageCaption(caption);
                     }
                 }   
             }
@@ -95,7 +98,6 @@ export default function PublishHtml () {
         }
 
         setCoverImageFile(file);
-        console.log(file);
         setCoverPreviewUrl(URL.createObjectURL(file));
         setCoverImageAsset(null); 
     }
@@ -117,9 +119,8 @@ export default function PublishHtml () {
         const form = new FormData();
         form.append("file", coverImageFile, coverImageFile.name);
         form.append("alt",  `Cover image for ${title || "post"}`);
-        form.append("caption", title || "");
+        form.append("caption", coverImageCaption?.trim() || title || "");
         if (postId) form.append("post_id", postId);
-        console.log(form);
 
         const url = `http://localhost:8000/api/assets/`;
         const res = await fetch(url, {
@@ -207,7 +208,7 @@ export default function PublishHtml () {
                 tags: parseTags(tagsText),
                 summary: summary.trim(),
                 raw: html,
-                body: buildFullHtml(html),
+                body: buildFullHtml(title, html, coverPreviewUrl, coverImageCaption, { hMargin: "5px", bgOpacity: 0.95 }),
                 status: "draft"
             };
 
@@ -243,8 +244,16 @@ export default function PublishHtml () {
         try {
             setPublish(true)
             const saved = await handleSave();
+            const now = new Date();
+            const options = {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            };
 
-            const finalHtml = buildFullHtml(title, html, summary);
+            const formattedDate = now.toLocaleDateString('en-GB', options);
+
+            const finalHtml = buildFullHtml(title, html, coverPreviewUrl, coverImageCaption, { hMargin: "5px", bgOpacity: 0.95 }, formattedDate);
 
             const finalSlug = slug.trim() || slugify(title);
             const filename = `${finalSlug.replace(/\s+/g, "-").toLowerCase()}-post.html`
@@ -252,7 +261,7 @@ export default function PublishHtml () {
             const form = new FormData();
             form.append("file", blob, filename);
             form.append("alt", `HTML snapshot for ${title}`);
-            form.append("caption", title);
+            form.append("caption", title || coverImageCaption?.trim());
             form.append("post_id", postId)
 
             // Upload the final html as asset
@@ -273,35 +282,10 @@ export default function PublishHtml () {
             const assetId = await assetData.id || assetData.asset_id;
             const assetLink = await assetData.link || assetData.public_link;
 
-            const publishPayload = {
-                id: postId,
-                html_id: assetId,
-                html_link: assetLink
-            }
-
-            const publishRes = await fetch (`http://localhost:8000/api/posts/${postId}/publish`, {
-                method: "PATCH",
-                headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${ADMIN_TOKEN}`
-                },
-                body: JSON.stringify(publishPayload),
-            });
-
-            if (!publishRes.ok) {
-                const txt = await publishRes.text();
-                throw new Error(`Publish failed: ${publishRes.status} ${txt}`);
-            }
-            const publishData = await publishRes.json();
             console.log("Published Successfully")
             const previewUrl = assetLink
-
             if (previewUrl) {
                 window.open(previewUrl, "_blank");
-            }
-            else {
-                alert("Published successfully (no preview URL returned)");
-                console.log("Publish response:", publishData);
             }
             navigate("/")
         }
@@ -413,6 +397,21 @@ export default function PublishHtml () {
                     </span>
                     </div>
                 </div>
+
+                <div className="mt-3">
+                    <label htmlFor="coverCaption" className="block text-sm font-medium text-gray-300 mb-1">
+                        Cover Image Caption (optional — defaults to title if left empty)
+                    </label>
+                    <input
+                        id="coverCaption"
+                        type="text"
+                        value={coverImageCaption}
+                        onChange={(e) => setCoverImageCaption(e.target.value)}
+                        placeholder="Caption for cover image"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 placeholder-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-terra focus:border-terra sm:text-sm"
+                    />
+                </div>
+
                 {coverPreviewUrl && (
                     <div className="mt-4">
                     <p className="text-sm text-gray-300 mb-2">Preview:</p>
@@ -456,7 +455,12 @@ export default function PublishHtml () {
             <div style={{ marginTop: 18 }}>
                 <strong>HTML output (preview)</strong>
                 <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 6, marginTop: 8 }}>
-                    <div dangerouslySetInnerHTML={{ __html: html }} />
+                    <div dangerouslySetInnerHTML={{ __html: buildFullHtml(
+                        title.trim(), 
+                        html, 
+                        coverPreviewUrl,
+                        "This a test cover image", 
+                        { hMargin: "5px", bgOpacity: 0.50 })}} />
                 </div>
             </div>
             

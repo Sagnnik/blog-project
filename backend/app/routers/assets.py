@@ -9,6 +9,7 @@ from pathlib import Path
 from pymongo.errors import DuplicateKeyError
 import httpx
 from typing import Optional
+from pymongo import ReturnDocument
 
 from deps import require_admin
 from db import db, doc_fix_ids
@@ -171,8 +172,6 @@ async def serve_html(slug : str):
             "caption": asset.get("caption"),
             "post_id": asset.get("post_id"),
         }
-    
-
     return {"metadata": metadata, "html": html_content}
 
 
@@ -181,14 +180,14 @@ async def serve_html(slug : str):
 async def upload_html_asset(
     request: Request,
     file: UploadFile = File(...),
-    post_id: str = None,
-    alt: str = None,
-    caption: str = None,
+    post_id: Optional[str] = Form(None),
+    alt: Optional[str] = Form(None),
+    caption: Optional[str] = Form(None),
     admin=Depends(require_admin)
 ):
     """
-    Save an HTML artifact (final rendered HTML) to disk and register an asset
-    Returns: {asset_id, path, filename, link}
+    From the frontend:
+    {blob, filename, alt, caption, post_id}
     """
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
@@ -208,13 +207,19 @@ async def upload_html_asset(
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest = upload_dir / filename
 
-    async with aiofiles.open(dest, "wb") as out_files:
-        await out_files.write(contents)
+    # Replacing if previous version exists
+    try:
+        if dest.exists():
+            dest.unlink() 
+        async with aiofiles.open(dest, "wb") as out_file:
+            await out_file.write(contents)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"File write error: {str(e)}")
 
     # Build the Mongo Storage File Meatadata
     stored_path = f"/uploads/{HTML_UPLOAD_SUBDIR}/{filename}"
-    base_url = str(request.base_url).rstrip("/")
-    public_url = f"{base_url}{stored_path}"
+    base_url = NPX_SERVER_URL
+    public_url = f"{base_url}/{HTML_UPLOAD_SUBDIR}/{filename}"
 
     now = datetime.now(timezone.utc)
     doc = {
@@ -236,7 +241,44 @@ async def upload_html_asset(
         doc["_id"] = result.inserted_id
         asset = doc
     except DuplicateKeyError:
-        asset = await db.assets.find_one({"path": stored_path})
+        update_doc = {
+            "$set": {
+                "filename": filename,
+                "mime": file.content_type,
+                "size": len(contents),
+                "uploaded_by": admin.get("clerk_user_id"),
+                "post_id": post_id,
+                "used_by_posts": True,
+                "alt": alt,
+                "caption": caption,
+                "public_link": public_url,
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "created_at": now
+            }
+        }
+        asset = await db.assets.find_one_and_update(
+            {"path": stored_path},
+            update_doc,
+            upsert=True,
+            return_document=ReturnDocument.AFTER
+        )
+        
+        if asset is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch or create asset")
+        
+    if post_id:
+        await db.posts.update_one(
+            {"_id": post_id},
+            {
+                "$set": {
+                    "html_id": str(asset.get("_id")),
+                    "html_link": public_url,
+                    "updated_at": now
+                }
+            }
+        )
 
 
     return JSONResponse({

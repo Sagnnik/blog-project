@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
+    "@wiris/mathtype-froala3": "^7.31.0",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "font-awesome": "^4.7.0",

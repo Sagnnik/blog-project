@@ -1,0 +1,72 @@
+/* froala-dark-overrides.css */
+
+/* Editor editable area and wrapper */
+.dark-theme.fr-box.fr-basic .fr-element {
+  background: #262626;
+  color: #e6eef8;
+}
+
+/* wrapper & toolbar */
+.dark-theme .fr-wrapper,
+.dark-theme .fr-toolbar,
+.dark-theme .fr-second-toolbar {
+  background: #111213;
+  border-color: #1f2937;
+  color: #e6eef8;
+}
+
+/* dialogs */
+.dark-theme .fr-popup {
+  background: #161616;
+  color: #e6eef8;
+  border-color: #2b2b2b;
+}
+
+/* Placeholder color */
+.dark-theme .fr-placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Block code styling */
+.dark-theme pre,
+.dark-theme pre code {
+  background: #0f1720;
+  color: #dbeafe;
+  display: block;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono",
+    "Courier New", monospace;
+  font-size: 0.95rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* Inline code styling */
+.dark-theme code {
+  background: rgba(255, 255, 255, 0.04);
+  color: #f3f4f6;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono",
+    monospace;
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
+/* Make inline <code> visually distinct inside normal text too */
+.fr-element p code,
+.fr-element span code {
+  line-height: 1.2;
+}
+
+/* optional border for code blocks */
+.dark-theme pre {
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* ensure saved code blocks keep pre formatting outside editor */
+pre code {
+  display: block;
+  white-space: pre;
+}

@@ -14,24 +14,3 @@ html, body {
   padding: 0;
   height: 100%;
 }
-
-pre code,
-pre {
-  background-color: #06203a; 
-  color: #e6f0ff;           
-  padding: 14px;
-  border-radius: 8px;
-  display: block;
-  overflow-x: auto;
-  white-space: pre;
-  line-height: 1.5;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Fira Code", monospace;
-}
-
-/* if using Prism/Highlight.js which uses pre[class*="language-"] */
-pre[class*="language-"] {
-  background: #06203a;
-  color: #e6f0ff;
-  border-radius: 8px;
-  padding: 14px;
-}
