@@ -6,38 +6,13 @@ import Button from "../components/Button";
 import { Plus } from "lucide-react";
 import ShowDeletedToggle from "../components/ShowDeleted";
 
-const initialPosts = [
-{
-id: 1,
-title: "Recreating BLIP-2: first steps",
-excerpt: "A short write-up about building the Q-Former...",
-status: 'draft',
-deleted: false,
-date: '2025-10-05',
-readTime: 6,
-tags: ['vision', 'research'],
-},
-{
-id: 2,
-title: "Designing layout GNNs",
-excerpt: "Using graph neural networks for UI layout embeddings...",
-status: 'published',
-deleted: false,
-date: '2025-09-30',
-readTime: 8,
-tags: ['gnn', 'ui'],
-},
-];
-
 export default function AdminBlogPage() {
 
     const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
     const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
 
     const navigate = useNavigate();
-
-    //const [postId, setPostId] = useState(null);
-    const [posts, setPosts] = useState(initialPosts);
+    const [posts, setPosts] = useState([]);
     const [isCreating, setIsCreating] = useState(false);
     const [isLoading, setisLoading] = useState(false);
     const [loadingIds, setLoadingIds] = useState(new Set);
@@ -47,7 +22,7 @@ export default function AdminBlogPage() {
     const [deletingIds, setDeletingIds] = useState(new Set());
 
     useEffect(() => {
-        async function fetchPost(params) {
+        async function fetchPost() {
             try {
                 setisLoading(true);
                 let limit = 50;
