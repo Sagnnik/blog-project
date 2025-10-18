@@ -4,14 +4,15 @@ import { slugify, buildFullHtml, parseTags } from './utils';
 import { useParams, useNavigate} from "react-router-dom";
 import Button from "../components/Button";
 import Navbar from "../components/Navbar";
+import { useAuth } from "@clerk/clerk-react";
 
 export default function PublishHtml () {
 
     const navigate = useNavigate();
     const {postId} = useParams();
 
-    const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
-    const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
+    const { getToken } = useAuth();
+    const BACKEND_BASE_URL = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
     
     const [title, setTitle] = useState("");
     const [slug, setSlug] = useState("");
@@ -31,6 +32,19 @@ export default function PublishHtml () {
     const [coverPreviewUrl, setCoverPreviewUrl] = useState('');
     const [coverImageCaption, setCoverImageCaption] = useState("");
 
+    async function authFetch(url, options = {}) {
+        const token = await getToken();
+        const headers = {
+            ...(options.headers || {} ),
+            "Authorization": `Bearer ${token}`,
+        };
+        if (!(options.body instanceof FormData)) {
+            headers["Content-Type"] = "application/json";
+        }
+        const res = await fetch(url, { ...options, headers });
+        return res;     
+    };
+
     useEffect(() => {
         if (!postId) return;
         let cancelled = false;
@@ -38,12 +52,9 @@ export default function PublishHtml () {
         async function fetchPost() {
             setLoading(true);
             try {
-                const url = `http://localhost:8000/api/posts/${postId}`;
-                const res = await fetch(url, {
-                    headers: {
-                        "Authorization": `Bearer ${ADMIN_TOKEN}`
-                    }
-                });
+                const url = `${BACKEND_BASE_URL}/api/posts/${postId}`;
+                const res = await authFetch(url);
+
                 if (!res.ok) {
                     const txt = await res.text();
                     throw new Error(`Failed to fetch post: ${res.status} ${txt || ""}`);
@@ -81,7 +92,7 @@ export default function PublishHtml () {
         fetchPost();
         return () => {cancelled = true;}
 
-    }, [postId, BACKEND_BASE_URL, ADMIN_TOKEN]);
+    }, [postId, BACKEND_BASE_URL, getToken]);
 
     function handleCoverFileChange(e) {
         const file = e?.target?.files?.[0]; 
@@ -122,10 +133,9 @@ export default function PublishHtml () {
         form.append("caption", coverImageCaption?.trim() || title || "");
         if (postId) form.append("post_id", postId);
 
-        const url = `http://localhost:8000/api/assets/`;
-        const res = await fetch(url, {
+        const url = `${BACKEND_BASE_URL}/api/assets/`;
+        const res = await authFetch(url, {
             method: "POST",
-            headers: { "Authorization": `Bearer ${ADMIN_TOKEN}` },
             body: form
         });
 
@@ -175,12 +185,9 @@ export default function PublishHtml () {
                 status: "draft",
             }
 
-            const res = await fetch (`http://localhost:8000/api/posts/${postId}`, {
+            const url = `${BACKEND_BASE_URL}/api/posts/${postId}`;
+            const res = await authFetch(url, {
                 method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${ADMIN_TOKEN}` 
-                },
                 body: JSON.stringify(payload)
             });
 
@@ -212,12 +219,9 @@ export default function PublishHtml () {
                 status: "draft"
             };
 
-            const res = await fetch(`http://localhost:8000/api/posts/${postId}`, {
+            const url = `${BACKEND_BASE_URL}/api/posts/${postId}`;
+            const res = await authFetch(url, {
                 method:"PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${ADMIN_TOKEN}`
-                },
                 body: JSON.stringify(payload)
             });
 
@@ -265,13 +269,11 @@ export default function PublishHtml () {
             form.append("post_id", postId)
 
             // Upload the final html as asset
-            const assetsRes = await fetch ("http://localhost:8000/api/assets/html", {
+            const url = `${BACKEND_BASE_URL}/api/assets/html`;
+            const assetsRes = await authFetch(url, {
                 method:"POST",
-                headers:{
-                    "Authorization": `Bearer ${ADMIN_TOKEN}`
-                },
                 body: form
-            })
+            });
 
             if (!assetsRes.ok) {
                 const txt = await assetsRes.text();

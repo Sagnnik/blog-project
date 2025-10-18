@@ -2,7 +2,7 @@ import { useUser } from '@clerk/clerk-react';
 import React, { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 
-export default function AdminRoute() {
+export default function AdminRoute({ children }) {
 
     const { isSignedIn, user } = useUser();
     const [loading, setLoading] = useState(true);
@@ -16,7 +16,7 @@ export default function AdminRoute() {
                 return;
             }
 
-            const adminId = process.env.VITE_ADMIN_CLERK_ID;
+            const adminId = import.meta.env.VITE_ADMIN_CLERK_ID;
 
             if (user && user.id === adminId) {
                 setAllowed(true);

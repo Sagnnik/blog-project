@@ -14,7 +14,7 @@ load_dotenv()
 CLERK_API_KEY = os.getenv("CLERK_SECRET_KEY")
 ADMIN_CLERK_ID = os.getenv("ADMIN_CLERK_ID")
 JWT_KEY = os.getenv("JWT_KEY")
-frontend_origins = "http://localhost:5173"
+frontend_origins = "http://127.0.0.1:5173"
 
 if not CLERK_API_KEY:
     raise RuntimeError("Environment requires CLERK api key")
@@ -36,8 +36,9 @@ async def require_admin(request: Request, credentials: Optional[HTTPAuthorizatio
         authorized_parties=[frontend_origins] if frontend_origins else None,
         jwt_key=JWT_KEY
     )
+    #httpx_req =await build_httpx_req(request)
 
-    request_state = clerk_client(request, options)
+    request_state = clerk_client.authenticate_request(request, options)
 
     if not request_state.is_signed_in:
         raise HTTPException(status_code=401, detail="Unauthorized")

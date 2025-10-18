@@ -5,11 +5,12 @@ import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import { Plus } from "lucide-react";
 import ShowDeletedToggle from "../components/ShowDeleted";
+import {useAuth} from "@clerk/clerk-react";
 
 export default function AdminBlogPage() {
 
-    const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
-    const BACKEND_BASE_URL = import.meta.env.FASTAPI_BASE_URL;
+    const { getToken } = useAuth();
+    const BACKEND_BASE_URL = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
 
     const navigate = useNavigate();
     const [posts, setPosts] = useState([]);
@@ -21,15 +22,26 @@ export default function AdminBlogPage() {
     const [showDeleted, setShowDeleted] = useState(false);
     const [deletingIds, setDeletingIds] = useState(new Set());
 
+    async function authFetch(url, options = {}) {
+        const token = await getToken();
+        const headers = {
+            ...(options.headers || {} ),
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+        };
+        const res = await fetch(url, { ...options, headers });
+        return res;     
+    };
+
     useEffect(() => {
         async function fetchPost() {
             try {
                 setisLoading(true);
                 let limit = 50;
                 let skip = 0;
-                const res = await fetch (`http://localhost:8000/api/posts?limit=${limit}&${skip}`, {
-                    headers: {"Authorization": `Bearer ${ADMIN_TOKEN}`}
-                });
+                const url = `${BACKEND_BASE_URL}/api/posts?limit=${limit}&skip=${skip}`;
+                const res = await authFetch(url)
+
                 if (!res.ok) {
                     const txt = await res.text()
                     throw new Error(`Post Loding Error: ${res.status} ${txt}`)
@@ -47,18 +59,22 @@ export default function AdminBlogPage() {
             }   
         }
         fetchPost();
-    }, [])
+    }, [getToken]);
 
     async function createNew() {
         try {
             setIsCreating(true);
-            const res = await fetch ("http://localhost:8000/api/posts", {
-                method:"POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${ADMIN_TOKEN}` 
-                }
+            const url = `${BACKEND_BASE_URL}/api/posts`
+            const res = await authFetch(url, {
+                method:"POST"
             });
+            // const res = await fetch ("http://localhost:8000/api/posts", {
+            //     method:"POST",
+            //     headers: {
+            //         "Content-Type": "application/json",
+            //         "Authorization": `Bearer ${ADMIN_TOKEN}` 
+            //     }
+            // });
 
             if(!res.ok) {
                 const txt = await res.text()
@@ -100,13 +116,17 @@ export default function AdminBlogPage() {
         setLoading(id, true);
         //encodeURIComponent for any string term
         try {
-            const res = await fetch(`http://localhost:8000/api/posts/${id}/status?status=${encodeURIComponent(newStatus)}`, {
-                method: "PATCH",
-                headers: {
-                    "Authorization": `Bearer ${ADMIN_TOKEN}`,
-                    "Content-Type": "application/json"
-                }
+            const url = `${BACKEND_BASE_URL}/api/posts/${id}/status?status=${encodeURIComponent(newStatus)}`
+            const res = await authFetch(url, {
+                method: "PATCH"
             });
+            // const res = await fetch(`http://localhost:8000/api/posts/${id}/status?status=${encodeURIComponent(newStatus)}`, {
+            //     method: "PATCH",
+            //     headers: {
+            //         "Authorization": `Bearer ${ADMIN_TOKEN}`,
+            //         "Content-Type": "application/json"
+            //     }
+            // });
 
             if(!res.ok) {
                 const txt = await res.text()
@@ -132,13 +152,17 @@ export default function AdminBlogPage() {
         setLoading(id, true);
 
         try{
-            const res = await fetch (`http://localhost:8000/api/posts/${id}/delete`, {
-                method: "PATCH",
-                headers: {
-                    "Authorization": `Bearer ${ADMIN_TOKEN}`,
-                    "Content-Type": "application/json"
-                }  
+            const url = `${BACKEND_BASE_URL}/api/posts/${id}/delete`
+            const res = await authFetch(url, {
+                method: "PATCH"
             });
+            // const res = await fetch (`http://localhost:8000/api/posts/${id}/delete`, {
+            //     method: "PATCH",
+            //     headers: {
+            //         "Authorization": `Bearer ${ADMIN_TOKEN}`,
+            //         "Content-Type": "application/json"
+            //     }  
+            // });
 
             if (!res.ok) {
                 const txt = await res.text();
@@ -164,13 +188,17 @@ export default function AdminBlogPage() {
         setLoading(id, true)
 
         try {
-            const res = await fetch (`http://localhost:8000/api/posts/${id}/restore`, {
-                method:"PATCH",
-                headers: {
-                    "Authorization": `Bearer ${ADMIN_TOKEN}`,
-                    "Content-Type": "application/json"
-                }
+            const url = `${BACKEND_BASE_URL}/api/posts/${id}/restore`
+            const res = await authFetch(url, {
+                method: "PATCH"
             });
+            // const res = await fetch (`http://localhost:8000/api/posts/${id}/restore`, {
+            //     method:"PATCH",
+            //     headers: {
+            //         "Authorization": `Bearer ${ADMIN_TOKEN}`,
+            //         "Content-Type": "application/json"
+            //     }
+            // });
 
             if (!res.ok) {
                 const text = await res.text();
@@ -202,13 +230,17 @@ export default function AdminBlogPage() {
         if (!ok) return
         try {
             setDeleting(id, true)
-            const res = await fetch(`http://localhost:8000/api/posts/${encodeURIComponent(id)}/delete`, {
-                method: "DELETE",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${ADMIN_TOKEN}`
-                },
+            const url = `${BACKEND_BASE_URL}/api/posts/${encodeURIComponent(id)}/delete`
+            const res = await authFetch(url, {
+                method: "DELETE"
             });
+            // const res = await fetch(`http://localhost:8000/api/posts/${encodeURIComponent(id)}/delete`, {
+            //     method: "DELETE",
+            //     headers: { 
+            //         "Content-Type": "application/json",
+            //         "Authorization": `Bearer ${ADMIN_TOKEN}`
+            //     },
+            // });
             if (!res.ok) {
                 const err = await res.json().catch(() => null)
                 throw new Error(err?.detail || `Failed to delete (status ${res.status})`)
