@@ -3,8 +3,11 @@ import Navbar from '../components/Navbar'
 
 export default function About() {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-neutral-900 text-gray-900">
       <Navbar />
+      <div className='max-w-2xl mx-auto p-6'>
+        <h3 className='text-3xl text-center font-extrabold font-mono text-gray-300 pb-2 mb-6 border-b border-gray-200'> About Page Upcoming</h3>
+      </div>
     </div>
   )
 }

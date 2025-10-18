@@ -1,32 +1,61 @@
 import os
-from fastapi import Depends, Security, HTTPException
+from typing import Optional
+import httpx
+from fastapi import Request, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from db import db
+from clerk_backend_api import Clerk
+from clerk_backend_api.security import authenticate_request
+from clerk_backend_api.security.types import AuthenticateRequestOptions
+from dotenv import load_dotenv
 
 security = HTTPBearer(auto_error=False)
+load_dotenv()
 
-ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "admin123")
+CLERK_API_KEY = os.getenv("CLERK_SECRET_KEY")
+ADMIN_CLERK_ID = os.getenv("ADMIN_CLERK_ID")
+JWT_KEY = os.getenv("JWT_KEY")
+frontend_origins = "http://127.0.0.1:5173"
 
-async def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    '''
-    local-dev admin auth
-    Expects Autorization: Bearer <token>
-    FIXME replace this with Clerk JWT verification
-    '''
+if not CLERK_API_KEY:
+    raise RuntimeError("Environment requires CLERK api key")
 
-    if credentials is None:
-        raise HTTPException(status_code=401, detail="Missing auth header")
+clerk_client = Clerk(bearer_auth=CLERK_API_KEY)
+
+async def build_httpx_req(request: Request) -> httpx.Request:
+    req_body = await request.body()
+    url = str(request.url)
+    headers = {k.decode() if isinstance(k, bytes) else k:v for k,v in request.headers.items()}
+    return httpx.Request(method=request.method, url=url, headers=headers, content=req_body)
+
+
+async def require_admin(request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    # Validate Clerk session token from Auth Headers
+    # Verify if the user id matches the clerk admin id
+
+    options = AuthenticateRequestOptions(
+        authorized_parties=[frontend_origins] if frontend_origins else None,
+        jwt_key=JWT_KEY
+    )
+    #httpx_req =await build_httpx_req(request)
+
+    request_state = clerk_client.authenticate_request(request, options)
+
+    if not request_state.is_signed_in:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     
-    token = credentials.credentials
-    if token != ADMIN_TOKEN:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    payload = request_state.payload
+    clerk_user_id = payload.get("sub")
+    if not clerk_user_id:
+        raise HTTPException(status_code=403, detail="Invalid Clerk Token Payload")
     
-    # For local dev return a fake admin user object
+    if clerk_user_id != ADMIN_CLERK_ID:
+        raise HTTPException(status_code=403, detail="Forbidden: Admins Only")
+    
     admin_user = {
-        "clerk_user_id": "local-admin",
-        "email": "Admin@gmail.com",
-        "name": "Admin",
+        "clerk_user_id": clerk_user_id,
+        "claims": payload,
         "is_admin": True
     }
-
     return admin_user
+
+
