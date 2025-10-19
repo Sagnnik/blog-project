@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import { Plus } from "lucide-react";
 import Navbar from '../components/Navbar'
+import PublicLatestBlogCard from "../components/PublicLatestBlogCard";
 
 export default function PublicBlogPage() {
 
@@ -45,24 +46,36 @@ export default function PublicBlogPage() {
     navigate(`/article/${slug}`, { state: {postId: post.id}});
   }
 
+  const latestPost = posts.length > 0 ? posts[0] : null;
+  const olderPosts = posts.length > 1 ? posts.slice(1) : [];
+
   return (
     <div className="min-h-screen bg-black/95 text-gray-300">
       <Navbar />
-      <main className="max-w-6xl mx-auto p-6 flex flex-col gap-7 mt-5">
+      <div className="max-w-6xl mx-auto p-6 flex flex-col gap-7 mt-5">
         <section className="flex flex-col gap-4">
           {posts.length === 0 && (
               <div className="text-center text-gray-500 py-12">
                   No Posts yet. Create one.
               </div>
           )}
-          {posts.map((post) => (
+          {latestPost && (
+            <section className="flex flex-col gap-4">
+              <PublicLatestBlogCard 
+              post={latestPost}
+              onOpen={() => onOpen(latestPost)}/>
+            </section>
+          )}
+          <section className="flex flex-col gap-4 mt-6">
+            {olderPosts.map((post) =>
             <PublicBlogCard
-            key={post.id} 
-            post={post} 
-            onOpen={() => openPost(post)}/>
-          ))}
+            key={post.id}
+            post={post}
+            onOpen={() => onOpen(post)} />
+            )}
+          </section>
         </section>
-      </main>
+      </div >
     </div>
   )
 }

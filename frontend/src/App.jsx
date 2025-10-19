@@ -8,6 +8,7 @@ import Tags from "./pages/Tags";
 import RequestAdmin from './pages/RequestAdmin';
 import PublicBlogPage from "./pages/PublicBlogPage";
 import AdminRoute from './components/AdminRoute';
+import LatestBlogCard from './components/LatestBlogCard';
 
 function App() {
   return (
@@ -24,5 +25,6 @@ function App() {
     </Router>
   );
 }
+
 
 export default App
