@@ -16,66 +16,9 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdi
 
     function getImageUrl() {
         if(!post?.cover_image) return null;
-        const public_link = post.cover_image.public_link;
-        return public_link;
+        return post.cover_image.public_link;
     }
-
-    async function handleImage() {
-        const url = getImageUrl();
-        if (!url) {
-            if (cardImageRef.current && cardImageRef.current.startsWith("blob:")) {
-                URL.revokeObjectURL(cardImageRef.current);
-                cardImageRef.current = null;
-            }
-            setCardImage(null);
-            return;
-        }
-        try {
-            setImageLoading(true);
-            const res = await fetch(url, { mode: "cors"});
-            if(!res.ok) {
-                const txt = await res.text();
-                throw new Error(`Failed to fetch Cover Image ${res.status} ${txt}`);
-            }
-
-            const blob = await res.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            if (cardImageRef.current && cardImageRef.current.startsWith("blob:")) {
-                try {
-                URL.revokeObjectURL(cardImageRef.current);
-                } catch (e) {
-                }
-            }
-            cardImageRef.current = objectUrl;
-            setCardImage(objectUrl)
-        }
-        catch(err) {
-            console.error("Error fetching Cover Image: ", err);
-            setCardImage(null);
-            if (cardImageRef.current && cardImageRef.current.startsWith("blob:")) {
-                try {
-                URL.revokeObjectURL(cardImageRef.current);
-                } catch (e) {}
-                cardImageRef.current = null;
-            }
-        }
-        finally{
-            setImageLoading(false);
-        }    
-    }
-    
-    useEffect(() => {
-        handleImage();
-        return () => {
-            if (cardImageRef.current && cardImageRef.current.startsWith("blob:")) {
-                try {
-                    URL.revokeObjectURL(cardImageRef.current);
-                } 
-                catch (e) {}
-                cardImageRef.current = null;
-            }
-        };
-    }, [post?.cover_image?.public_link]);
+    const imgUrl = getImageUrl();
 
     useEffect(() => {
         function handleClick(e) {
@@ -205,7 +148,7 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdi
                             </div>
                         ) : (
                             <img
-                            src={cardImage || "/src/assets/img1.jpg"}
+                            src={imgUrl || "/src/assets/img1.jpg"}
                             alt={post?.cover_image?.alt || "Cover Image"}
                             className="w-full h-full object-cover hover:cursor-pointer"
                             />

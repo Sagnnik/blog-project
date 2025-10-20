@@ -1,61 +1,60 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useQuery } from '@tanstack/react-query'
+import { Hourglass } from "ldrs/react";
+import 'ldrs/react/Hourglass.css'
+
+const NPX_SERVER_URL = import.meta.env.VITE_NPX_SERVER_URL || "http://localhost:8001";
 
 export default function PostPreview() {
-  const NPX_SERVER_URL = import.meta.env.VITE_NPX_SERVER_URL || "http://localhost:8001";
+
   const { slug } = useParams();
 
-  const [html, setHtml] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(null);
+  const fetchPostNpx = async ({ signal }) => {
+    if (!slug) throw new error("Missing Slug");
 
-  useEffect(() => {
-    let mounted = true;
-    if (!slug) {
-      setErr("Missing slug");
-      return;
+    const filename = `${encodeURIComponent(slug)}-post.html`;
+    const npxUrl = `${NPX_SERVER_URL.replace(/\/$/, "")}/html/${filename}`;
+
+    const res = await fetch(npxUrl, {
+      method:"GET",
+      headers: { Accept: "text/html"},
+      signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`NPX fetch failed: ${res.status} ${text}`);
     }
 
-    async function fetchFromNpx() {
-      setLoading(true);
-      setErr(null);
+    const returnedHtml = await res.text();
+    const baseHref = `${NPX_SERVER_URL.replace(/\/$/, "")}/html/`;
+    return `<base href="${baseHref}">${returnedHtml}`;
+  };
 
-      const filename = `${encodeURIComponent(slug)}-post.html`;
-      const npxUrl = `${NPX_SERVER_URL.replace(/\/$/, "")}/html/${filename}`;
+  const {
+    data: html,
+    isLoading,
+    isError,
+    error
+  } = useQuery({
+    queryKey: ["publicPosts", slug],
+    queryFn: fetchPostNpx,
+    enabled: !!slug, // dont run util slug exists
+    staleTime: 1000 * 60 * 5
+  })
+  
 
-      try {
-        const res = await fetch(npxUrl, {
-          method: "GET",
-          headers: { Accept: "text/html" },
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`NPX fetch failed: ${res.status} ${text}`);
-        }
-
-        const returnedHtml = await res.text();
-        const baseHref = `${NPX_SERVER_URL.replace(/\/$/, "")}/html/`;
-        const htmlWithBase = `<base href="${baseHref}">${returnedHtml}`;
-
-        if (mounted) setHtml(htmlWithBase);
-      } catch (error) {
-        console.error("Error fetching HTML from NPX server:", error);
-        if (mounted) setErr(error.message || "Failed to load post");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    fetchFromNpx();
-
-    return () => {
-      mounted = false;
-    };
-  }, [slug, NPX_SERVER_URL]);
-
-  if (loading) return <div className="blog-loading">Loading preview…</div>;
-  if (err) return <div className="blog-error">Error: {err}</div>;
+  if (isLoading) return(
+    <div className="flex flex-col items-center gap-3 mt-50">
+      <Hourglass size="60" bgOpacity="0.1" speed="1.4" color="#da7756" />
+      <p className="text-black text-sm tracking-wide">Loading Post...</p>
+    </div>
+  );
+  if (isError) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return <div className="blog-error">Error: {msg}</div>;
+  }
 
   return (
     <div
