@@ -289,7 +289,7 @@ export default function PublishHtml () {
             if (previewUrl) {
                 window.open(previewUrl, "_blank");
             }
-            navigate("/")
+            navigate("/admin")
         }
         catch(err){
             console.error("handlePublish Error:", err)

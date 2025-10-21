@@ -1,13 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import ToggleButton from "./ToggleButton";
-import Button from "./Button";
 import { MoreHorizontal, Edit3, Trash2 } from "lucide-react";
 
 export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdit }) {
-    const [cardImage, setCardImage] = useState(null);
-    const cardImageRef = useRef(null);
-    const [imageLoading, setImageLoading] = useState(false);
-    const NPX_SERVER_URL = "http://localhost:8001";
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
     const menuButtonRef = useRef(null);
@@ -140,19 +135,12 @@ export default function BlogCard({ post, onOpen, onToggleStatus, onDelete, onEdi
                         onClick={onOpen}
                         role="link"
                         tabIndex={0}
-                        className={`w-1/3 flex-shrink-0 ${CARD_HEIGHT_CLASS} overflow-hidden`}
-                        >
-                        {imageLoading ? (
-                            <div className="w-full h-full flex items-center justify-center bg-neutral-700">
-                            Loading…
-                            </div>
-                        ) : (
+                        className={`w-1/3 flex-shrink-0 ${CARD_HEIGHT_CLASS} overflow-hidden`}>
                             <img
                             src={imgUrl || "/src/assets/img1.jpg"}
                             alt={post?.cover_image?.alt || "Cover Image"}
                             className="w-full h-full object-cover hover:cursor-pointer"
                             />
-                        )}
                         </div>
                     </div>
         </article>

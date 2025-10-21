@@ -1,15 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react'
-import image from "../assets/first.jpg"
-import { SignedIn } from '@clerk/clerk-react';
 import ToggleButton from './ToggleButton';
 import { MoreHorizontal, Edit3, Trash2 } from "lucide-react";
-import Button from './Button';
 
 export default function LatestBlogCard({post, onOpen, onToggleStatus, onDelete, onEdit}) {
-
-    const [cardImage, setCardImage] = useState(null);
-    const cardImageRef = useRef(null);
-    const [imageLoading, setImageLoading] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
     const menuButtonRef = useRef(null);
@@ -65,19 +58,12 @@ export default function LatestBlogCard({post, onOpen, onToggleStatus, onDelete, 
                 onClick={onOpen}
                 role="link"
                 tabIndex={0}
-                className={`w-1/3 flex-shrink-0 ${CARD_HEIGHT_CLASS} overflow-hidden`}
-                >
-                {imageLoading ? (
-                    <div className="w-full h-full flex items-center justify-center bg-neutral-700">
-                    Loading…
-                    </div>
-                ) : (
+                className={`w-1/3 flex-shrink-0 ${CARD_HEIGHT_CLASS} overflow-hidden`}>
                     <img
                     src={imgUrl || "/src/assets/img1.jpg"}
                     alt={post?.cover_image?.alt || "Cover Image"}
                     className="w-full h-full object-cover hover:cursor-pointer"
                     />
-                )}
                 </div>
 
                 <div className='w-2/3 pl-10 flex flex-col justify-between p-4'>

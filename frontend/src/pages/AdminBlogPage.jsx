@@ -1,227 +1,207 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import BlogCard from "../components/BlogCard";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import { Plus } from "lucide-react";
 import ShowDeletedToggle from "../components/ShowDeleted";
-import {useAuth} from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 import LatestBlogCard from "../components/LatestBlogCard";
+import { Hourglass } from "ldrs/react";
+import 'ldrs/react/Hourglass.css'
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+    fetchPostById,
+    fetchPosts,
+    createPost,
+    patchStatus,
+    softDeletePost,
+    restorePost,
+    permanentDeletePost,
+} from "./postsApi";
 
 export default function AdminBlogPage() {
 
     const { getToken } = useAuth();
     const BACKEND_BASE_URL = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
-
     const navigate = useNavigate();
-    const [posts, setPosts] = useState([]);
-    const [isCreating, setIsCreating] = useState(false);
-    const [isLoading, setisLoading] = useState(false);
-    const [loadingIds, setLoadingIds] = useState(new Set);
+    const queryClient = useQueryClient();
 
-    const [nextId, setNextId] = useState(3);
     const [showDeleted, setShowDeleted] = useState(false);
+    const [loadingIds, setLoadingIds] = useState(new Set);
     const [deletingIds, setDeletingIds] = useState(new Set());
 
-    async function authFetch(url, options = {}) {
-        const token = await getToken();
-        const headers = {
-            ...(options.headers || {} ),
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-        };
-        const res = await fetch(url, { ...options, headers });
-        return res;     
+    const setLoading = (id, val) => 
+        setLoadingIds((prev) => {
+            const next = new Set(prev);
+            if (val) next.add(id);
+            else next.delete(id);
+            return next;
+    });
+
+    const setDeleting = (id, val) =>
+        setDeletingIds((prev) => {
+        const next = new Set(prev);
+        if (val) next.add(id);
+        else next.delete(id);
+        return next;
+    });
+
+    //Fetching posts
+    const {data: posts=[], isLoading: isPostsLoading, isError:isPostsError, error:postsError} = useQuery({
+        queryKey:["posts", { showDeleted }],
+        queryFn: async () => fetchPosts({ getToken, backendUrl: BACKEND_BASE_URL, limit:20, skip:0, showDeleted }),
+        staleTime: 1000 * 30,
+        gcTime: 1000 * 60 * 10,
+    });
+
+    if(isPostsError){
+        console.error("Error fetching posts", postsError);
+        alert("Error fetching posts: " + (postsError.message || postsError));
+    }
+
+    const visiblePosts = useMemo(() => posts.filter((p) => (showDeleted ? true : !p.is_deleted)), [posts, showDeleted]);
+    const deletedCount = useMemo(() => posts.filter((p) => p.is_deleted).length, [posts]);
+    const latestPost = visiblePosts.length > 0 ? visiblePosts[0] : null;
+    const olderPosts = visiblePosts.length > 1 ? visiblePosts.slice(1) : [];
+
+    // 1. Create Posts (btn click) -> navigate to editor page (onSuccess)
+    const {mutate: createNew, isLoading:isCreateNewLoading} = useMutation({
+        mutationFn: () => createPost({ getToken, backendUrl:BACKEND_BASE_URL }),
+        onSuccess: (data) => {
+            const postId = data?.id || data?.post_id;
+            queryClient.invalidateQueries(["posts"]);
+            if (postId) navigate(`/admin/publish/${postId}`)
+        },
+        onError: (err) => {
+            console.error("Create post failed:", err);
+            alert("Error creating new post: " + (err.message || err));
+        }
+    });
+
+    // 2. Toggle Status (optimistic)
+    // for optimistic 3 steps: onMutate, onError, onSetteled
+    // onMutate 4 steps: stop in-flight, get previous, set new cache, return the previous
+    // onError 2 steps: log error, roll-back changes with previous
+    // onSetteled 1 step: invalidate cache
+    const {mutate: toggleStatusMutation} = useMutation({
+        mutationFn: ({ id, newStatus }) => patchStatus({getToken, backendUrl:BACKEND_BASE_URL, id, status:newStatus}),
+        onMutate: async ({ id, newStatus }) => {
+            await queryClient.cancelQueries(["posts", { showDeleted }]);
+            const previous = queryClient.getQueryData(["posts", { showDeleted }]);
+
+            queryClient.setQueryData(["posts", { showDeleted }], (oldPosts = []) =>
+                oldPosts.map((p) => (p.id === id ? {...p, status: newStatus} : p))
+            );
+
+            setLoading(id, true);
+            return {previous, id};
+        },
+        onError: (err, variables, context) => {
+            console.error("Toggle status failed:", err);
+            alert("Failed to toggle status: " + (err.message || err));
+            queryClient.setQueryData(["posts", { showDeleted }], context.previous);
+        },
+        onSettled: (data, err, variables, context) => {
+            setLoading(context?.id, false);
+            queryClient.invalidateQueries(["posts", { showDeleted }]);
+        },
+    });
+
+    // 3. Soft Delete (Optimistic)
+    const { mutate: softDeleteMutation } = useMutation({
+        mutationFn: ({ id }) => softDeletePost({getToken, backendUrl:BACKEND_BASE_URL, id}),
+        onMutate: async ({ id }) => {
+            await queryClient.cancelQueries(["posts", { showDeleted }]);
+            const previous = queryClient.getQueryData(["posts", { showDeleted }]);
+            queryClient.setQueryData(["posts", { showDeleted }], (old = []) => 
+                old.map((p) => (p.id === id) ? {...p, is_deleted: true} : p));
+            setLoading(id, true);
+            return {previous, id};
+        },
+        onError: (err, variables, context) => {
+            console.error("Soft delete failed:", err);
+            alert("Failed to soft delete: " + (err.message || err));
+            queryClient.setQueryData(["posts", { showDeleted }], context.previous);
+        },
+        onSettled: (data, err, variables, context) => {
+            setLoading(context?.id, false);
+            queryClient.invalidateQueries(["posts", { showDeleted }]);
+        }
+    });
+
+    // 4. Restore (optimistic)
+    const { mutate: restoreMutation } = useMutation({
+        mutationFn: ({ id }) => restorePost({ getToken, backendUrl:BACKEND_BASE_URL, id }),
+        onMutate: async ({ id }) => {
+            await queryClient.cancelQueries(["posts", { showDeleted }]);
+            const previous = queryClient.getQueryData(["posts", { showDeleted }]);
+            queryClient.setQueryData(["posts", { showDeleted }], (old = []) => 
+                old.map((p) => (p.id === id ? { ...p, is_deleted: false } : p)));
+            setLoading(id, true);
+            return { previous, id };
+        },
+        onError: (err, variables, context) => {
+            console.error("Restore failed:", err);
+            alert("Failed to restore: " + (err.message || err));
+            queryClient.setQueryData(["posts", { showDeleted }], context.previous);
+        },
+        onSettled: (data, err, variables, context) => {
+            setLoading(context?.id, false);
+            queryClient.invalidateQueries(["posts", { showDeleted }]);
+        },
+    });
+
+    // 5. Permanent Delete
+    const { mutate: permaDeleteMutation } = useMutation({
+        mutationFn: ({ id }) => permanentDeletePost({ getToken, backendUrl:BACKEND_BASE_URL, id}),
+        onMutate: ({ id }) => {
+            setDeleting(id, true);
+        },
+        onSuccess: (_, { id }) => {
+            queryClient.setQueryData(["posts", { showDeleted }], (old = []) => 
+                old.filter((p) => p.id !== id));
+        },
+        onError: (err, variables) => {
+            console.error("Permanent delete failed:", err);
+            alert("Failed to permanently delete post: " + (err.message || err));
+        },
+        onSettled: (_, __, context) => {
+            setDeleting(context?.id, false);
+            queryClient.invalidateQueries(["posts", { showDeleted }]);
+        },
+    });
+
+    // Prefetch and cache before action
+    const prefetchPost = (id) => {
+        queryClient.prefetchQuery({
+            queryKey: ["post", id],
+            queryFn: () => fetchPostById({ getToken, backendUrl: BACKEND_BASE_URL, id }),
+            staleTime: 1000 * 60 * 5,
+        });
     };
 
-    useEffect(() => {
-        async function fetchPost() {
-            try {
-                setisLoading(true);
-                let limit = 50;
-                let skip = 0;
-                const url = `${BACKEND_BASE_URL}/api/posts?limit=${limit}&skip=${skip}`;
-                const res = await authFetch(url)
-
-                if (!res.ok) {
-                    const txt = await res.text()
-                    throw new Error(`Post Loding Error: ${res.status} ${txt}`)
-                }
-                const data = await res.json();
-                setPosts(data);
-            }
-            catch(err) {
-                console.error("Error Fetching posts: ", err);
-                alert("Error fetching posts: " + (err.message || err))
-                throw err
-            }
-            finally{
-                setisLoading(false);
-            }   
-        }
-        fetchPost();
-    }, [getToken]);
-
-    async function createNew() {
-        try {
-            setIsCreating(true);
-            const url = `${BACKEND_BASE_URL}/api/posts`
-            const res = await authFetch(url, {
-                method:"POST"
-            });
-
-            if(!res.ok) {
-                const txt = await res.text()
-                throw new Error(`Create Post Failed: ${res.status} ${txt}`)
-            }
-            
-            const data = await res.json()
-            const postId = data.id || data.post_id;
-            
-            navigate(`/admin/publish/${postId}`);
-        }
-        catch(err) {
-            console.error("Create-New Error:", err);
-            alert("Error Creating New post: " + (err.message || err))
-            throw err;
-        }
-        finally {
-            setIsCreating(false);
-        }
+    // Handler for Mutations
+    function toggleStatus(id) {
+        const post = posts.find((p) => p.id === id);
+        if (!post) return;
+        const newStatus = post.status === "published" ? "draft" : "published";
+        toggleStatusMutation({ id, newStatus });
     }
 
-    // need to copy the ids and save in another state and revert if the Operation fails
-    function setLoading(id, isLoading) {
-        setLoadingIds(prev => {
-            const copy = new Set(prev);
-            if (isLoading) copy.add(id);
-            else copy.delete(id);
-            return copy;
-        });
+    function softDelete(id) {
+        softDeleteMutation({ id });
     }
 
-    async function toggleStatus(id) {
-        const prevPost = posts.find(p => p.id === id);
-        if(!prevPost) return;
-
-        const newStatus = prevPost.status === "published"? "draft" : "published";
-
-        setPosts(prev => prev.map(p => p.id === id? { ...p, status: newStatus}: p));
-        setLoading(id, true);
-        //encodeURIComponent for any string term
-        try {
-            const url = `${BACKEND_BASE_URL}/api/posts/${id}/status?status=${encodeURIComponent(newStatus)}`
-            const res = await authFetch(url, {
-                method: "PATCH"
-            });
-
-            if(!res.ok) {
-                const txt = await res.text()
-                throw new Error(`Error Toggling Status: ${res.status} {txt}` )
-            }
-        }
-        catch(err) {
-            console.error("togglestatus error: ", err);
-            alert("Failed to toggle status: ", (err.message || err));
-
-            setPosts(prev => prev.map ( p => p.id === id? {...p, status: prevPost.status} : p));
-        }
-        finally{
-            setLoading(id, false)
-        }  
+    function restore(id) {
+        restoreMutation({ id });
     }
 
-    async function softDelete(id) {
-        const prevPost = posts.find(p => p.id === id);
-        if (!prevPost) return;
-
-        setPosts(prev => prev.map( p => p.id === id? {...p, is_deleted: true} : p));
-        setLoading(id, true);
-
-        try{
-            const url = `${BACKEND_BASE_URL}/api/posts/${id}/delete`
-            const res = await authFetch(url, {
-                method: "PATCH"
-            });
-
-            if (!res.ok) {
-                const txt = await res.text();
-                throw new Error(`Soft-delete failed: ${res.status} ${txt}`);
-            }
-        }
-        catch (err) {
-            console.error("softDelete Failed: ", err);
-            alert("Failed to soft delete: ", (err.message || err))
-
-            setPosts(prev => prev.map(p => p.id === id? {...p, is_deleted:false} : p));
-        }
-        finally{
-            setLoading(id, false);
-        }
-    }
-
-    async function restore(id) {
-        const prevPost = posts.find( p => p.id === id);
-        if(!prevPost) return;
-
-        setPosts(prev => prev.map( p => p.id === id? {...p, is_deleted:false } : p));
-        setLoading(id, true)
-
-        try {
-            const url = `${BACKEND_BASE_URL}/api/posts/${id}/restore`
-            const res = await authFetch(url, {
-                method: "PATCH"
-            });
-
-
-            if (!res.ok) {
-                const text = await res.text();
-                throw new Error(`Restore failed: ${res.status} ${text}`);
-            }
-        }
-        catch(err) {
-            console.error("restore error:", err);
-            alert("Failed to restore post: " + (err.message || err));
-
-            setPosts(prev => prev.map ( p => p.id === id ? { ...p, is_deleted: true} : p));
-        }
-        finally{
-            setLoading(id, false);
-        }
-    }
-
-    const setDeleting = (id, val) => {
-        setDeletingIds(prev => {
-            const next = new Set(prev)
-            if (val) next.add(id)
-            else next.delete(id)
-            return next
-        })
-    }
-
-    async function permanentDelete(id) {
-        const ok = window.confirm("This will permanently delete the post. This action cannot be undone. Proceed?")
-        if (!ok) return
-        try {
-            setDeleting(id, true)
-            const url = `${BACKEND_BASE_URL}/api/posts/${encodeURIComponent(id)}/delete`
-            const res = await authFetch(url, {
-                method: "DELETE"
-            });
-
-            if (!res.ok) {
-                const err = await res.json().catch(() => null)
-                throw new Error(err?.detail || `Failed to delete (status ${res.status})`)
-            }
-            setPosts(prev => prev.filter(p => p.id !== id))
-        }
-        catch (error) {
-            console.error("Permanent delete failed:", error)
-            alert(error.message || "Failed to permanently delete post.")
-        } 
-        finally {
-            setDeleting(id, false)
-        }
+    function permanentDelete(id) {
+        const ok = window.confirm("This will permanently delete the post. Click ok to continue");
+        if (!ok) return;
+        permaDeleteMutation({ id });
     }
 
     function openPost(post) {
@@ -229,13 +209,10 @@ export default function AdminBlogPage() {
         navigate(`/article/${slug}`, { state: {postId: post.id}});
     }
 
-
-
-    const visiblePosts = posts.filter(p => (showDeleted ? true : !p.is_deleted))
-
-    const deletedCount = posts.filter(p => p.is_deleted).length;
-    const latestPost = visiblePosts.length > 0 ? visiblePosts[0] : null;
-    const olderPosts = visiblePosts.length > 1 ? visiblePosts.slice(1) : [];
+    function handleEdit(id) {
+        prefetchPost(id);
+        navigate(`/admin/publish/${id}`);
+    }
 
     return (
         <div className="min-h-screen bg-black/95 text-gray-300">
@@ -247,7 +224,7 @@ export default function AdminBlogPage() {
                 <div className="flex gap-3">
                 <Button
                     onClick={createNew}
-                    loading={isCreating}
+                    loading={isCreateNewLoading}
                     variant="outline"
                     icon={Plus}
                 >
@@ -262,10 +239,13 @@ export default function AdminBlogPage() {
                 </div>
             </header>
 
-            {visiblePosts.length === 0 ? (
-                <div className="text-center text-gray-500 py-12">
-                No posts yet. Create one.
-                </div>
+            {isPostsLoading ? (
+                <>
+                    <Hourglass size="60" bgOpacity="0.1" speed="1.4" color="#da7756" />
+                    <p className="text-gray-300 text-sm tracking-wide">Loading Posts</p>
+                </>
+            ) : visiblePosts.length === 0 ? (
+                <div className="text-center text-gray-500 py-12">No posts yet. Create one.</div>
             ) : (
                 <>
                 {latestPost && (
@@ -320,9 +300,9 @@ export default function AdminBlogPage() {
                         <LatestBlogCard
                         post={latestPost}
                         onOpen={() => openPost(latestPost)}
-                        onToggleStatus={toggleStatus}
-                        onDelete={softDelete}
-                        onEdit={(id) => navigate(`/admin/publish/${id}`)}
+                        onToggleStatus={() => toggleStatus(latestPost.id)}
+                        onDelete={() => softDelete(latestPost.id)}
+                        onEdit={() => handleEdit(latestPost.id)}
                         />
                     )}
                     </section>
@@ -384,9 +364,9 @@ export default function AdminBlogPage() {
                         key={post.id}
                         post={post}
                         onOpen={() => openPost(post)}
-                        onToggleStatus={toggleStatus}
-                        onDelete={softDelete}
-                        onEdit={(id) => navigate(`/admin/publish/${id}`)}
+                        onToggleStatus={() => toggleStatus(post.id)}
+                        onDelete={() => softDelete(post.id)}
+                        onEdit={() => handleEdit(post.id)}
                         />
                     )
                     )}
