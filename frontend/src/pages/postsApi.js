@@ -12,7 +12,7 @@ export async function fetchPostById({ getToken, backendUrl, id }) {
 
 export async function createPost({ getToken, backendUrl }) {
     const url = `${backendUrl}/api/posts`;
-    return authFetch(getToken, url, {mehtod: "POST"});
+    return authFetch(getToken, url, {method: "POST"});
 }
 
 export async function patchStatus({ getToken, backendUrl, id, status }) {

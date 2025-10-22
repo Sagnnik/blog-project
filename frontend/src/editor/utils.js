@@ -1,13 +1,65 @@
 // Helpers for Editor
+const BASE = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
 
-// ----------- REGEX -----------
-// g -> all occurances
-// + -> one or more
-// \s -> all whitespace 
-// \w -> all alphanumeric characters
-// ^ -> negates the selection
-// $ -> end of the string
-// /-+$/ --> removes trailing '-'
+export async function authFetch(getToken, url, options = {}) {
+    const token = await getToken();
+    const providedHeaders = options.headers || {};
+
+    const headers = {
+        ...providedHeaders,
+        Authorization: `Bearer ${token}`,
+    };
+
+    const hasContentType = Object.keys(headers).some(
+        (k) => k.toLowerCase() === "content-type"
+    );
+
+    if (!hasContentType && !(options.body instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    const res = await fetch(url, { ...options, headers });
+    return res;
+}
+
+export async function fetchPost({ getToken, postId, signal }) {
+    if (!postId) throw new Error("postId is required");
+    const url = `${BASE}/api/posts/${postId}`;
+    const res = await authFetch(getToken, url, { signal });
+    if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`Fetch post failed: ${res.status} ${txt || ""}`);
+    }
+    return res.json();
+}
+
+export async function updatePost({ getToken, postId, payload }) {
+    if (!postId) throw new Error("postId is required");
+    const url = `${BASE}/api/posts/${postId}`;
+    const res = await authFetch(getToken, url, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`Save failed: ${res.status} ${txt || ""}`);
+    }
+    return res.json();
+}
+
+export async function uploadAsset({ getToken, formData, endpoint }) {
+    if (!formData) throw new Error("formData is required");
+    const url = endpoint;
+    const res = await authFetch(getToken, url, {
+        method: "POST",
+        body: formData,
+    });
+    if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`Upload failed: ${res.status} ${txt || ""}`);
+    }
+    return res.json();
+}
 
 export function slugify(s = "") {
     return s

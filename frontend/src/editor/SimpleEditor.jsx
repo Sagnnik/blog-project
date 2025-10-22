@@ -48,7 +48,7 @@ export default function SimpleEditor({ html, setHtml }) {
   // Build headers from cached tokens
   const defaultRequestHeaders = useMemo(() => {
     const token = cachedToken || null;
-    return token? {Authorization: `Bearer ${token}`} : {};
+    return token? {"Authorization": `Bearer ${token}`} : {};
   }, [cachedToken]);
 
   useEffect(() => {
