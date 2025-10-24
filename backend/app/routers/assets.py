@@ -10,9 +10,12 @@ from pymongo.errors import DuplicateKeyError
 import httpx
 from typing import Optional
 from pymongo import ReturnDocument
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
 
 from deps import require_admin
 from db import db, doc_fix_ids
+from utils import compress_image
 
 router = APIRouter()
 
@@ -21,8 +24,10 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 HTML_UPLOAD_SUBDIR = "html"
 ALLOWED_HTML_TYPES = {"text/html", "application/xhtml+xml"}
 ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"}
-MAX_FILE_SIZE = 10*1024*1024
+MAX_UPLOAD_FILE_SIZE = 10*1024*1024
+MAX_SAVE_FILE_SIZE = 1*1024*1024
 NPX_SERVER_URL = "http://127.0.0.1:8001"
+PROCESS_POOL = ProcessPoolExecutor(max_workers=2)
 
 
 @router.post("/assets")
@@ -43,19 +48,43 @@ async def upload_assets(
     
 
     contents = await file.read()
+    orig_size = len(contents)
 
-    ext = Path(file.filename).suffix or ".png"
+    if orig_size > MAX_UPLOAD_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File Size Eceeded 5MB")
+
+
+    orig_ext = Path(file.filename).suffix.lower() or ".png"
+    filename= None
+    final_bytes = contents
+    final_mime = file.content_type
+
+    try:
+        if orig_size > MAX_SAVE_FILE_SIZE:
+            loop = asyncio.get_running_loop()
+            compressed = await loop.run_in_executor(PROCESS_POOL, compress_image, contents, MAX_SAVE_FILE_SIZE)
+            final_bytes = compressed
+            final_mime = "image/jpeg"
+            ext = ".jpg"
+
+        else:
+            ext = orig_ext
+
+    except Exception as e:
+        ext = orig_ext
+        final_bytes = contents
+        final_mime = file.content_type
+
     uid = uuid4().hex
     filename = f"{uid}{ext}"
-
     upload_dir = Path(UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     dest = upload_dir/filename
 
-    #Save file asynchronously
-    async with aiofiles.open(dest, "wb") as out_files:
-        await out_files.write(contents)
+    # Save asynchronously
+    async with aiofiles.open(dest, "wb") as out_file:
+        await out_file.write(final_bytes)
 
     # Build a relative path and public url. Eg :- `/uploads/{filename}`
     stored_path = f"/{filename}"
@@ -68,8 +97,8 @@ async def upload_assets(
     doc = {
         "path": stored_path,
         "filename": filename,
-        "mime": file.content_type,
-        "size": len(contents),
+        "mime": final_mime,
+        "size": len(final_bytes),
         "uploaded_by": admin.get("clerk_user_id"),
         "post_id": post_id if post_id else None,
         "used_by_posts": bool(post_id),
@@ -108,8 +137,8 @@ async def upload_assets(
                 cover_obj = {
                     "path": stored_path,
                     "filename": filename,
-                    "mime": file.content_type,
-                    "size": len(contents),
+                    "mime": final_mime,
+                    "size": len(final_bytes),
                     "uploaded_by": admin.get("clerk_user_id"),
                     "post_id": post_id if post_id else None,
                     "used_by_posts": bool(post_id),
@@ -136,7 +165,6 @@ async def upload_assets(
         "asset_id": str(result.inserted_id),
         "link":public_url
     })
-
 
 @router.get("/assets/html/{slug}")
 async def serve_html(slug : str):

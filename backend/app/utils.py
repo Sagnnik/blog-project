@@ -3,13 +3,15 @@ import time
 import os
 import io
 
-def compress_image(in_img, max_size=1000000, min_quality=5, max_quality=95):
+def compress_image(in_img: bytes, max_size: int=1000000, min_quality=5, max_quality=95) -> bytes:
     start = time.time()
-    old_size = os.path.getsize(in_img)
-
-    img = Image.open(in_img)
-    if img.mode in ('RGBA', "P"):
-        img= img.convert("RGB")
+    img = Image.open(io.BytesIO(in_img))
+    if img.mode in ("RGBA", "LA", "P"):
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
+        img = background
+    else:
+        img = img.convert("RGB")
 
     #Binary search for best quality
     low, high = min_quality, max_quality
@@ -31,18 +33,9 @@ def compress_image(in_img, max_size=1000000, min_quality=5, max_quality=95):
             high = mid-1
 
     if best_out:
-        out_img = f"com_{best_quality}.jpg"
-        with open(out_img, "wb") as f:
-            f.write(best_out)
+        end = time.time()
+        print(f"Compressed in {end - start:.2f}s")
+        return best_out
 
     else:
         raise ValueError("Could'nt compress below target size")
-    
-    end = time.time()
-
-    new_size = os.path.getsize(out_img)
-    print(f"Compressed in {end - start:.2f}s | Quality={best_quality}")
-    print(f"Old size: {old_size/1024:.2f} KB --> New size: {new_size/1024:.2f} KB")
-
-
-compress_image("second.jpg")

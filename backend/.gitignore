@@ -8,6 +8,7 @@ wheels/
 
 # folders to untrack
 app/uploads
+app/compression
 
 # Virtual environments
 .venv
