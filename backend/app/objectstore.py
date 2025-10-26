@@ -29,10 +29,10 @@ s3_client = _session.client(
 )
 
 # Async Wrappers
-async def uploadfile_obj(fileobj, bucket, key, content_type=None, extra_args=None):
+async def upload_fileobj(fileobj, bucket, key, content_type=None, extra_args=None):
     args={}
     if content_type:
-        args["Content-Type"] = content_type
+        args["ContentType"] = content_type
 
     if extra_args:
         args.update(extra_args)
@@ -43,7 +43,7 @@ async def uploadfile_obj(fileobj, bucket, key, content_type=None, extra_args=Non
 async def put_object_from_bytes(data: bytes, bucket, key, content_type=None, extra_args=None):
     params = {"Bucket":bucket, "Key": key, "Body": data}
     if content_type:
-        params["Content-Type"] = content_type
+        params["ContentType"] = content_type 
     if extra_args:
         params.update(extra_args)
 

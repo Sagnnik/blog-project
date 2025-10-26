@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, File, Form, UploadFile, Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from uuid import uuid4
+from bson.errors import InvalidId
 import os
-import aiofiles
+from botocore.exceptions import ClientError
 from datetime import datetime, timezone
 from bson import ObjectId
 from pathlib import Path
@@ -11,13 +12,18 @@ import httpx
 from typing import Optional
 from pymongo import ReturnDocument
 import asyncio
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from concurrent.futures import ProcessPoolExecutor
 
 from deps import require_admin
 from db import db, doc_fix_ids
 from utils import compress_image
+from objectstore import R2_BUCKET, upload_fileobj, generate_presigned_get_url, put_object_from_bytes, s3_client
 
 router = APIRouter()
+
+limiter = Limiter(key_func=get_remote_address)
 
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "./uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -82,15 +88,13 @@ async def upload_assets(
 
     dest = upload_dir/filename
 
-    # Save asynchronously
-    async with aiofiles.open(dest, "wb") as out_file:
-        await out_file.write(final_bytes)
-
-    # Build a relative path and public url. Eg :- `/uploads/{filename}`
-    stored_path = f"/{filename}"
+    stored_path = f"images/{filename if filename else 'upload.bin'}" 
+    try:
+        await put_object_from_bytes(final_bytes, R2_BUCKET, stored_path, content_type=final_mime)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Upload Failed") from e
     
-    base_url = NPX_SERVER_URL
-    public_url = f"{base_url}{stored_path}"
+    public_url = generate_presigned_get_url(key=stored_path)
 
     #Insert Metadata into DB
     now = datetime.now(timezone.utc)
@@ -107,7 +111,14 @@ async def upload_assets(
         "created_at": now,
     }
 
-    result = await db.assets.insert_one(doc)
+    try: 
+        result = await db.assets.insert_one(doc)
+
+    except Exception:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, lambda: s3_client.delete_object(R2_BUCKET, Key=stored_path))
+        raise HTTPException(status_code=500, detail="Failed to save Metadata")
+
     asset_id_str = str(result.inserted_id)
     await db.assets.update_one(
         {"_id": result.inserted_id},
@@ -117,48 +128,50 @@ async def upload_assets(
     if post_id:
         try:
             post_oid = ObjectId(post_id)
-            post = await db.posts.find_one({"_id":post_oid})
+        except InvalidId:
+            raise HTTPException(status_code=400, detail="Post Id format is incorrect")
+        
+        post = await db.posts.find_one({"_id": post_oid})
+        if not post:
+            raise HTTPException(status_code=404, detail="Post ID not found")
 
-            if post:
-                # soft deleteing the old cover image
-                old_cover = post.get("cover_image")
-                if old_cover and isinstance(old_cover, dict):
-                    old_asset_id = old_cover.get("asset_id")
-                    old_path = old_cover.get("/path")
-                    if old_asset_id:
-                        try: 
-                            await db.assets.update_one(
-                                {"asset_id": old_asset_id},
-                                {"$set": {"used_by_posts": False}}
-                            )
-                        except Exception:
-                            pass
+        if post:
+            # soft deleteing the old cover image
+            old_cover = post.get("cover_image")
+            if old_cover and isinstance(old_cover, dict):
+                old_asset_id = old_cover.get("asset_id")
+                old_path = old_cover.get("path")
+                if old_asset_id:
+                    try: 
+                        await db.assets.update_one(
+                            {"asset_id": old_asset_id},
+                            {"$set": {"used_by_posts": False}}
+                        )
+                    except Exception:
+                        pass
 
-                cover_obj = {
-                    "path": stored_path,
-                    "filename": filename,
-                    "mime": final_mime,
-                    "size": len(final_bytes),
-                    "uploaded_by": admin.get("clerk_user_id"),
-                    "post_id": post_id if post_id else None,
-                    "used_by_posts": bool(post_id),
-                    "alt": alt,
-                    "caption": caption,
-                    "created_at": now,
-                    "public_link": public_url,
-                    "asset_id": asset_id_str,
-                }
+            cover_obj = {
+                "path": stored_path,
+                "filename": filename,
+                "mime": final_mime,
+                "size": len(final_bytes),
+                "uploaded_by": admin.get("clerk_user_id"),
+                "post_id": post_id if post_id else None,
+                "used_by_posts": bool(post_id),
+                "alt": alt,
+                "caption": caption,
+                "created_at": now,
+                "public_link": public_url,
+                "asset_id": asset_id_str,
+            }
 
-                await db.posts.update_one(
-                    {"_id": post_oid},
-                    {"$set" : {"cover_image": cover_obj, "updated_at": now}}
-                )
+            await db.posts.update_one(
+                {"_id": post_oid},
+                {"$set" : {"cover_image": cover_obj, "updated_at": now}}
+            )
 
-            else:
-                raise HTTPException(status_code=404, detail="Post ID not found" )
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="Post Id format is incorrect")
+        else:
+            raise HTTPException(status_code=404, detail="Post ID not found" )
 
 
     return JSONResponse({
@@ -167,40 +180,31 @@ async def upload_assets(
     })
 
 @router.get("/assets/html/{slug}")
+@limiter.limit("10/minute")
 async def serve_html(slug : str):
 
     filename = f"{slug}-post.html"
+    key = f"html/{filename}"
+    # Searching in db is not needed in most cases
 
-    asset = await db.assets.find_one({"filename": filename})
-    if not asset:
-        raise HTTPException(status_code=404, detail="Metadata not found for this file")
+    try:
+        loop = asyncio.get_running_loop()
+        response = await loop.run_in_executor(None, lambda: s3_client.get_object(R2_BUCKET, key))
+        html_bytes = response["Body"].read()
+        html_content = html_bytes.decode("utf-8")
 
+    except s3_client.exceptions.NoSuchKey:
+        raise HTTPException(status_code=404, detail="HTML file not found in storage")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error fetching HTML from storage: {str(e)}")
 
-    #cannot use the public link
-    # for now linking it to npx server at http://127.0.0.1:8001
-    if asset and asset.get("public_link"):
-        public_link = f"{NPX_SERVER_URL}/html/{filename}"
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(public_link)
-                if resp.status_code != 200:
-                    raise HTTPException(status_code=resp.status_code,
-                                        detail=f"Failed to fetch public_link: {public_link} (status {resp.status_code})")
-                html_content = resp.text
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Error fetching public_link: {e}")
-        
-        metadata = {
-            "filename": asset.get("filename"),
-            "public_link": public_link,
-            "uploaded_by": asset.get("uploaded_by"),
-            "created_at": asset.get("created_at"),
-            "caption": asset.get("caption"),
-            "post_id": asset.get("post_id"),
-        }
-    return {"metadata": metadata, "html": html_content}
+    headers = {"Cache-Control": "public, max-age=60"}
+
+    return HTMLResponse(
+        content=html_content,
+        headers=headers,
+        media_type="text/html"
+    )
 
 
 # Add a route for saving satic html blog page
@@ -231,23 +235,18 @@ async def upload_html_asset(
         ext = ".html"
 
     filename = file.filename
-    upload_dir = Path(UPLOAD_DIR) / HTML_UPLOAD_SUBDIR
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    dest = upload_dir / filename
+    stored_path = f"html/{filename if filename else 'html_upload.bin'}"
 
     # Replacing if previous version exists
     try:
-        if dest.exists():
-            dest.unlink() 
-        async with aiofiles.open(dest, "wb") as out_file:
-            await out_file.write(contents)
+        await put_object_from_bytes(contents, bucket=R2_BUCKET, key=stored_path, content_type=file.content_type)
+    except ClientError as e:
+        err_msg = e.response.get("Error", {}).get("Message", str(e))
+        raise HTTPException(status_code=500, detail=f"Upload failed: {err_msg}") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File write error: {str(e)}")
-
-    # Build the Mongo Storage File Meatadata
-    stored_path = f"/uploads/{HTML_UPLOAD_SUBDIR}/{filename}"
-    base_url = NPX_SERVER_URL
-    public_url = f"{base_url}/{HTML_UPLOAD_SUBDIR}/{filename}"
+        raise HTTPException(status_code=500, detail=f"Upload Failed: {str(e)}") from e
+    
+    public_url = generate_presigned_get_url(key=stored_path)
 
     now = datetime.now(timezone.utc)
     doc = {
@@ -296,17 +295,37 @@ async def upload_html_asset(
         if asset is None:
             raise HTTPException(status_code=500, detail="Failed to fetch or create asset")
         
+    except Exception as e:
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, lambda: s3_client.delete_object(R2_BUCKET, stored_path))
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to save metadata: {str(e)}") from e
+        
     if post_id:
-        await db.posts.update_one(
-            {"_id": post_id},
-            {
-                "$set": {
-                    "html_id": str(asset.get("_id")),
-                    "html_link": public_url,
-                    "updated_at": now
+        try:
+            post_oid = ObjectId(post_id)
+        except InvalidId:
+            raise HTTPException(status_code=400, detail="Post ID format is incorrect")
+
+        post = await db.posts.find_one({"_id": post_oid})
+        if not post:
+            raise HTTPException(status_code=404, detail="Post ID not found")
+        
+        try:
+            await db.posts.update_one(
+                {"_id": post_oid},
+                {
+                    "$set": {
+                        "html_id": str(asset.get("_id")),
+                        "html_link": public_url,
+                        "updated_at": now
+                    }
                 }
-            }
-        )
+            )
+        except Exception:
+            raise HTTPException(status_code=500, detail="Failed to link html to post")
 
 
     return JSONResponse({
@@ -319,27 +338,14 @@ async def upload_html_asset(
 
 @router.delete("/assets/{asset_id}")
 async def delete_asset(asset_id: str, admin=Depends(require_admin)):
-    try:
-        oid = ObjectId(asset_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid id")
-    
-    asset = await db.assets.find_one({"_id": oid})
+    asset = await db.assets.find_one({"asset_id": asset_id})
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    
-    # FIXME add a use_by_posts field
-    if asset.get("use_by_post"):
-        raise HTTPException(status_code=400, detail="Asset is referenced by Post")
-    
-    #delete file
-    local_path = asset["path"].lstrip("/")
-    try:
-        os.remove(local_path)
 
-    except Exception:
-        pass
-    
+    key = asset["path"]
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, lambda:s3_client.delete_object(R2_BUCKET, key))
     now = datetime.now(timezone.utc)
-    await db.assets.delete_one({"_id": oid})
+
+    await db.assets.delete_one({"asset_id": asset_id})
     return {"ok": True, "at":now}
