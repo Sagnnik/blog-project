@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import SimpleEditor from "./SimpleEditor";
 import { slugify, buildFullHtml, parseTags } from './utils';
 import { useParams, useNavigate} from "react-router-dom";
@@ -18,6 +18,7 @@ export default function PublishHtml () {
     const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
     const [coverImageFile, setCoverImageFile] = useState(null);
     const [coverImageAsset, setCoverImageAsset] = useState(null);
+    const objectUrlRef = useRef(null);
 
     const { postQuery, saveMutation, uploadAssetMutation } = usePost(postId);
     const { data: postData, isLoading: postLoading } = postQuery;
@@ -33,27 +34,73 @@ export default function PublishHtml () {
     });
 
     useEffect(() => {
-        if(!postData) return;
+        if (!postData) return;
+
         const tagsText = Array.isArray(postData.tags) ? postData.tags.join(", ") : "";
-        
+
         reset({
             title: postData.title || "",
             slug: postData.slug || "",
             tagsText,
             summary: postData.summary || "",
-            coverCaption: postData.cover_image?.caption || "",
+            coverCaption: postData.cover_caption || "", 
         });
 
         if (postData.raw) setHtml(postData.raw);
-        if (postData.cover_image) {
-            const link = postData.cover_image.public_link || postData.cover_image.link;
-            if (link) {
-                setCoverPreviewUrl(link);
-                setCoverImageAsset({ 
-                    id: postData.cover_image.asset_id || postData.cover_image.id, 
-                    link
-                })
-            }
+
+        if (objectUrlRef.current) {
+            URL.revokeObjectURL(objectUrlRef.current);
+            objectUrlRef.current = null;
+        }
+
+        
+        if (postData.cover_asset_id) {
+            const controller = new AbortController();
+
+            (async () => {
+                try {
+                    const res = await fetch(
+                        `${BASE}/api/assets/${postData.cover_asset_id}`,
+                        {
+                            signal: controller.signal,
+                        }
+                    );
+
+                    if (!res.ok) {
+                        setCoverPreviewUrl("");
+                        setCoverImageAsset(null);
+                        return;
+                    }
+
+                    const blob = await res.blob();               // FastAPI Response with image bytes
+                    const url = URL.createObjectURL(blob);       // local object URL for <img src=...>
+                    objectUrlRef.current = url;
+
+                    setCoverPreviewUrl(url);
+                    setCoverImageAsset({
+                        id: postData.cover_asset_id,
+                        key: postData.cover_image_key || null,
+                    });
+                } catch (e) {
+                    if (e?.name !== "AbortError") {
+                        // optionally log
+                    }
+                    setCoverPreviewUrl("");
+                    setCoverImageAsset(null);
+                }
+            })();
+
+            return () => {
+                controller.abort();
+                if (objectUrlRef.current) {
+                    URL.revokeObjectURL(objectUrlRef.current);
+                    objectUrlRef.current = null;
+                }
+            };
+        } else {
+            
+            setCoverPreviewUrl("");
+            setCoverImageAsset(null);
         }
     }, [postData, reset]);
 
@@ -85,6 +132,10 @@ export default function PublishHtml () {
         setCoverImageAsset(null);
     }
 
+    function coverSrcFromAsset(asset) {
+        return asset?.id ? `${BASE}/api/assets/${asset.id}` : "";
+    }
+
     async function uploadCoverImageIfAny(title, coverCaption) {
         if (!coverImageFile) {
         return coverImageAsset || null;
@@ -95,7 +146,7 @@ export default function PublishHtml () {
         form.append("caption", (coverCaption && coverCaption.trim()) || title || "");
         if (postId) form.append("post_id", postId);
 
-        const result = await uploadAssetMutation.mutateAsync({ formData: form, endpoint: `${BASE}/api/assets/` });
+        const result = await uploadAssetMutation.mutateAsync({ formData: form, endpoint: `${BASE}/api/assets/upload-image` });
         const id = result.id || result.asset_id || result.assetId;
         const link = result.link || result.public_link || result.url;
         const asset = { id, link };
@@ -107,32 +158,34 @@ export default function PublishHtml () {
     // Save handler (called via RHF handleSubmit)
     async function onSave(values) {
         try {
-        const title = values.title?.trim();
-        const payload = {
-            title,
-            slug: (values.slug?.trim() || slugify(title)),
-            tags: parseTags(values.tagsText),
-            summary: values.summary?.trim(),
-            raw: html,
-            body: buildFullHtml(title, html, coverPreviewUrl, values.coverCaption, { hMargin: "5px", bgOpacity: 0.95 }),
-            status: "draft",
-        };
+            const title = values.title?.trim();
+        
+            let ensuredCoverAsset = null;
+            try {
+                ensuredCoverAsset = await uploadCoverImageIfAny(title, values.coverCaption);
+            }
+            catch (imgErr) {
+                console.error("Image upload failed:", imgErr);
+                alert("Cover image upload failed: " + (imgErr.message || imgErr));
+            }
+            const coverSrc = coverSrcFromAsset(ensuredCoverAsset || coverImageAsset);
 
-        try {
-            const coverAsset = await uploadCoverImageIfAny(title, values.coverCaption);
-            // if (coverAsset && coverAsset.id) {
-            //     payload.cover_image = { asset_id: coverAsset.id, public_link: coverAsset.link };
-            // }
-        } catch (imgErr) {
-            console.error("Image upload failed:", imgErr);
-            alert("Cover image upload failed: " + (imgErr.message || imgErr));
-        }
+            const payload = {
+                title,
+                slug: (values.slug?.trim() || slugify(title)),
+                tags: parseTags(values.tagsText),
+                summary: values.summary?.trim(),
+                raw: html,
+                body: buildFullHtml(title, html, coverSrc, values.coverCaption, { hMargin: "5px", bgOpacity: 0.95 }),
+                status: "draft",
+                ...( (ensuredCoverAsset || coverImageAsset)?.id ? { cover_asset_id: (ensuredCoverAsset || coverImageAsset).id } : {} ),
+            };
 
-        await saveMutation.mutateAsync(payload);
-        console.log("Saved successfully");
+            await saveMutation.mutateAsync(payload);
+            console.log("Saved successfully");
         } catch (err) {
-        console.error("Save error:", err);
-        alert("Error saving post: " + (err.message || err));
+            console.error("Save error:", err);
+            alert("Error saving post: " + (err.message || err));
         }
     }
 
@@ -152,11 +205,12 @@ export default function PublishHtml () {
             year: "numeric",
         };
         const formattedDate = now.toLocaleDateString("en-GB", options);
+        const coverSrc = coverSrcFromAsset(coverImageAsset);
 
         const finalHtml = buildFullHtml(
             values.title?.trim(),
             html,
-            coverPreviewUrl,
+            coverSrc,
             values.coverCaption,
             { hMargin: "5px", bgOpacity: 0.95 },
             formattedDate

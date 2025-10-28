@@ -4,19 +4,19 @@ import { useQuery } from '@tanstack/react-query'
 import { Hourglass } from "ldrs/react";
 import 'ldrs/react/Hourglass.css'
 
-const NPX_SERVER_URL = import.meta.env.VITE_NPX_SERVER_URL || "http://localhost:8001";
+const BASE = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
 
 export default function PostPreview() {
 
   const { slug } = useParams();
 
-  const fetchPostNpx = async ({ signal }) => {
+  const fetchPostHtml = async ({ signal }) => {
     if (!slug) throw new error("Missing Slug");
 
     const filename = `${encodeURIComponent(slug)}-post.html`;
-    const npxUrl = `${NPX_SERVER_URL.replace(/\/$/, "")}/html/${filename}`;
+    const apiUrl = `${BASE}/api/assets/html/${filename}`;
 
-    const res = await fetch(npxUrl, {
+    const res = await fetch(apiUrl, {
       method:"GET",
       headers: { Accept: "text/html"},
       signal,
@@ -24,11 +24,11 @@ export default function PostPreview() {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`NPX fetch failed: ${res.status} ${text}`);
+      throw new Error(`HTML fetch failed: ${res.status} ${text}`);
     }
 
     const returnedHtml = await res.text();
-    const baseHref = `${NPX_SERVER_URL.replace(/\/$/, "")}/html/`;
+    const baseHref = `${BASE}/api/assets/html/`;
     return `<base href="${baseHref}">${returnedHtml}`;
   };
 
@@ -39,7 +39,7 @@ export default function PostPreview() {
     error
   } = useQuery({
     queryKey: ["publicPosts", slug],
-    queryFn: fetchPostNpx,
+    queryFn: fetchPostHtml,
     enabled: !!slug, // dont run util slug exists
     staleTime: 0,
     gcTime: 1000 * 60,

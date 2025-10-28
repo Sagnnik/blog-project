@@ -96,47 +96,6 @@ async def update_post(id: str, payload: PostUpdate, admin=Depends(require_admin)
     new_doc = await db.posts.find_one({"_id": oid})
     return doc_fix_ids(new_doc)
 
-@router.patch("/posts/{id}/publish")
-async def publish_post(
-    id: str, 
-    payload: dict = Body(...),
-    admin=Depends(require_admin)
-):
-    try:
-        oid = ObjectId(id)
-
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid Id")
-    
-    post = await db.posts.find_one({"_id": oid})
-    if not post:
-        raise HTTPException(status_code=404, detail="Not found")
-    
-    now=datetime.now(timezone.utc)
-    html_id = payload.get("htmlId") or payload.get("html_id")
-    html_link = payload.get("htmlLink") or payload.get("html_link")
-    if html_link:
-        await db.posts.update_one({"_id": oid}, {
-            "$set": {
-                "html_id": html_id,
-                "html_link": html_link,
-                "status": "published",
-                "published_at": now,
-                "updated_at": now
-            }
-        })
-    else:
-        await db.posts.update_one({"_id": oid}, {
-            "$set": {
-                "status": "published",
-                "published_at": now,
-                "updated_at": now
-            }
-        })
-
-    updated = await db.posts.find_one({"_id":oid})
-    return doc_fix_ids(updated)
-
 @router.patch("/posts/{id}/status")
 async def change_status(id: str, status: str, admin=Depends(require_admin)):
     try:

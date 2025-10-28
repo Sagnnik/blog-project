@@ -4,11 +4,16 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 import os
 import sys
-from routers import posts, public, assets
+from routers import posts, public, assetsv2
 from db import init_db
 from init_index import init as init_indexes
+from api_limiter import limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 app = FastAPI(title="Blog Backend")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 origins = [
     "http://localhost:5173",
@@ -42,4 +47,5 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.include_router(public.router, prefix="/api/public")
 app.include_router(posts.router, prefix="/api")
-app.include_router(assets.router, prefix="/api")
+#app.include_router(assets.router, prefix="/api")
+app.include_router(assetsv2.router, prefix="/api/assets")

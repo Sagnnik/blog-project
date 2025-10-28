@@ -29,7 +29,7 @@ s3_client = _session.client(
 )
 
 # Async Wrappers
-async def upload_fileobj(fileobj, bucket, key, content_type=None, extra_args=None):
+async def upload_object(fileobj, bucket, key, content_type=None, extra_args=None):
     args={}
     if content_type:
         args["ContentType"] = content_type
@@ -49,6 +49,23 @@ async def put_object_from_bytes(data: bytes, bucket, key, content_type=None, ext
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, lambda: s3_client.put_object(**params))
+
+async def get_object(bucket, key):
+    loop = asyncio.get_running_loop()
+
+    def _get():
+        res = s3_client.get_object(Bucket=bucket, Key=key)
+        data = res["Body"].read()
+        metadata = {
+            "ContentType": res.get("ContentType"),
+            "ContentLength": res.get("ContentLength"),
+            "LastModified": res.get("LastModified"),
+            "ETag": res.get("ETag"),
+        }
+        return data, metadata
+    
+    data, metadata = await loop.run_in_executor(None, _get)
+    return data, metadata
 
 def generate_presigned_get_url(key:str, expires_in: int = 3600) -> str:
     return s3_client.generate_presigned_url(
