@@ -1,0 +1,19 @@
+
+# Git
+.git
+.gitignore
+
+# Python
+.python-version
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.idea
+.vscode
+
+# Other
+.DS_Store

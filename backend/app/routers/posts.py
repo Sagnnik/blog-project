@@ -167,7 +167,6 @@ async def permanent_delete(id: str, admin=Depends(require_admin)):
     if not isinstance(froala_key_list, list):
         froala_key_list = [froala_key_list]
 
-    loop = asyncio.get_running_loop()
     keys = [k for k in [cover_asset_key, html_asset_key, *froala_key_list] if k]
     status_meta = []
     now = datetime.now(timezone.utc)

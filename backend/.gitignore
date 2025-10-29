@@ -12,4 +12,7 @@ app/compression
 
 # Virtual environments
 .venv
+
+#Other files
 .env
+.python-version

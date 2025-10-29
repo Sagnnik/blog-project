@@ -1,38 +1,15 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from db import db, doc_fix_ids
 from bson import ObjectId
-
-# Notes on MongoDB:
-# find: returns a cursor object 
-# find_one: returns a document
-# Every document gets a _id field automatically unless specifed otherwise. Need to resolve _id and id with Alias in Pydantic or helper function
-
+from api_limiter import limiter
 
 router = APIRouter()
 
-@router.get("/about")
-async def get_about():
-
-    """
-    Returns the site settings stored in `settings` collection.
-    Document format:
-      {
-        "_id": "site_config",
-        "site_title": "Sagnnik's AI Diaries",
-        "about_html": "<p>About me...</p>",
-        "social": { "twitter": "@you" }
-      }
-    """
-
-    cfg = await db.settings.find_one({"_id": "site_config"}) or {}
-    return {
-        "site_title": cfg.get("site_title", "My Blog"),
-        "about_html": cfg.get("about_html", ""),
-        "social": cfg.get("social", {})
-    }
 
 @router.get("/posts")
+@limiter.limit("50/minute")
 async def list_posts(
+    request: Request,
     limit: int=10,
     skip: int=0,
     tag: str=None,
@@ -53,7 +30,8 @@ async def list_posts(
     return [doc_fix_ids(d) for d in docs]
 
 @router.get("/post/{slug}")
-async def get_post_by_slug(slug: str):
+@limiter.limit("50/minute")
+async def get_post_by_slug(request: Request, slug: str):
     post = await db.posts.find_one({"slug":slug, "status":"published", "is_deleted": {"$eq":False}})
     if not post:
         raise HTTPException(status_code=400, detail="Post Not Found")
@@ -62,7 +40,8 @@ async def get_post_by_slug(slug: str):
 
 # searching by id creates issues in crawling. Bad for SEO
 @router.get("/post-id/{id}")
-async def get_post_by_id(id: str):
+@limiter.limit("50/minute")
+async def get_post_by_id(request: Request, id: str):
     try:
         oid = ObjectId(id)
     except Exception:
