@@ -7,9 +7,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 COPY uv.lock pyproject.toml ./
 
-RUN uv sync --locked
+RUN uv sync --frozen --no-dev
 
 COPY app/ /app/app/
+
+# Add app to Python path (safe expansion)
+ENV PYTHONPATH="/app/app:${PYTHONPATH:-}"
 
 EXPOSE 8000
 
