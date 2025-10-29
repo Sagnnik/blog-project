@@ -3,6 +3,7 @@ import ToggleButton from './ToggleButton';
 import { MoreHorizontal, Edit3, Trash2 } from "lucide-react";
 
 export default function LatestBlogCard({post, onOpen, onToggleStatus, onDelete, onEdit}) {
+    const BASE = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
     const menuButtonRef = useRef(null);
@@ -10,8 +11,9 @@ export default function LatestBlogCard({post, onOpen, onToggleStatus, onDelete, 
     const CARD_HEIGHT_CLASS = "h-60"
 
     function getImageUrl() {
-        if(!post?.cover_image) return null; 
-        return post.cover_image.public_link;
+        if(!post?.cover_asset_id) return null;
+        const link = `${BASE}/api/assets/${post.cover_asset_id}`;
+        return link
     }
 
     const imgUrl = getImageUrl();

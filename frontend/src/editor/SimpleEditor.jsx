@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo } from "react";
 import FroalaEditor from "react-froala-wysiwyg";
-import { useAuth } from "@clerk/clerk-react";
 
 import "froala-editor/css/froala_style.min.css";
 import "froala-editor/css/froala_editor.pkgd.min.css";
@@ -12,44 +11,7 @@ import "froala-editor/js/plugins/code_beautifier.min.js";
 import "froala-editor/js/plugins/code_view.min.js";
 import "./froala-dark-overrides.css";
 
-export default function SimpleEditor({ html, setHtml }) {
-  const {getToken} = useAuth();
-  const [cachedToken, setCachedToken] = useState(null);
-
-  const getFreshClerkToken = useCallback(async () => {
-    if (!getToken) return null;
-    try {
-      const token = await getToken();
-      return token || null;
-    } catch (err) {
-      console.warn("getToken() failed:", err);
-      return null;
-    }
-  }, [getToken]);
-
-  // gets new token on refresh
-  useEffect(() => {
-    let mounted = true;
-    async function refresh() {
-      const t = await getFreshClerkToken();
-      if (mounted) setCachedToken(t);
-    }
-    refresh();
-    function onFocus() {
-      refresh();
-    }
-    window.addEventListener("focus", onFocus);
-    return () => {
-      mounted = false;
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [getFreshClerkToken]);
-
-  // Build headers from cached tokens
-  const defaultRequestHeaders = useMemo(() => {
-    const token = cachedToken || null;
-    return token? {"Authorization": `Bearer ${token}`} : {};
-  }, [cachedToken]);
+export default function SimpleEditor({ html, setHtml, postId }) {
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.FroalaEditor) return;
@@ -140,7 +102,7 @@ export default function SimpleEditor({ html, setHtml }) {
           "html",
           "fullscreen",
           "wirisEditor",
-          "wirisChemistry"
+          "wirisChemistry",
         ],
       ],
       paragraphFormat: {
@@ -161,65 +123,26 @@ export default function SimpleEditor({ html, setHtml }) {
       },
       placeholderText: "Start writing your blog post ... ",
       charCounterCount: true,
-      imageUploadURL: "http://localhost:8000/api/assets",
+
+      imageUploadURL: `http://localhost:8000/api/assets/froala-image/${postId}`,
       imageUploadMethod: "POST",
 
-      requestHeaders: defaultRequestHeaders,
       events: {
-        initialized: function (e, editor) {
+        initialized: function () {
+          console.log("Froala editor initialized");
         },
-
-        // beforeUpload to refetch tokens
-        "image.beforeUpload": async function (e, editor, files) {
-          const ed = editor || this;
-          if (!ed) {
-            console.warn(
-              "Froala editor instance not available in beforeUpload handler — canceling upload."
-            );
-            return false;
-          }
-          let token = null;
-          try {
-            token = await getFreshClerkToken();
-          } catch (err) {
-            console.warn("Error fetching fresh Clerk token:", err);
-            token = null;
-          }
-          const finalToken = token || null;
-
-          if (!finalToken) {
-            console.warn("No auth token available for Image Uplaod: Cancelling Upload");
-            try {
-              // If editor's popups are available, show a simple message
-              if (ed.popups && typeof ed.popups.show === "function") {
-                alert("You must be signed in to upload images.");
-              } else {
-                alert("You must be signed in to upload images.");
-              }
-            } catch (err) {
-              // ignore popup errors
-            }
-          }
-
-          // inject headers for this instance
-          ed.opts = ed.opts || {};
-          ed.opts.requestHeaders = { Authorization: `Bearer ${finalToken}` };
-          // additional params for backend can be uploaded from here 
-          //editor.opts.imageUploadParams = postId
-
+        "image.beforeUpload": function () {
           return true;
         },
-
         "image.error": function (e, editor, error, response) {
           console.error("Froala image error:", error, response);
         },
-
         "image.uploaded": function (e, editor, response) {
           console.log("Image uploaded, server response:", response);
         },
       },
     }),
-    [defaultRequestHeaders, getFreshClerkToken]
+    [postId]
   );
 
   return (

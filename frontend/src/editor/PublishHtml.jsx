@@ -225,12 +225,12 @@ export default function PublishHtml () {
         form.append("caption", values.title || values.coverCaption?.trim() || "");
         if (postId) form.append("post_id", postId);
 
-        const result = await uploadAssetMutation.mutateAsync({ formData: form, endpoint: `${BASE}/api/assets/html` });
-
-        const assetLink = result.link || result.public_link;
-        if (assetLink) {
-            window.open(assetLink, "_blank");
-        }
+        await uploadAssetMutation.mutateAsync({ formData: form, endpoint: `${BASE}/api/assets/html` });
+        
+        // const assetLink = result.link || result.public_link;
+        // if (assetLink) {
+        //     window.open(assetLink, "_blank");
+        // }
         navigate("/admin");
         } catch (err) {
         console.error("Publish error:", err);
@@ -380,7 +380,7 @@ export default function PublishHtml () {
             </div>
             </form>
 
-            <SimpleEditor html={html} setHtml={setHtml}/>
+            <SimpleEditor html={html} setHtml={setHtml} postId={postId}/>
 
             <div className="flex justify-start mt-4 gap-3">
                 <Button

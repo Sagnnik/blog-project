@@ -5,6 +5,7 @@ from models import PostCreate, PostUpdate
 from deps import require_admin
 from db import db, doc_fix_ids
 import asyncio
+from objectstore import s3_client, R2_BUCKET
 from typing import Optional
 from uuid import uuid4
 
@@ -153,14 +154,73 @@ async def permanent_delete(id: str, admin=Depends(require_admin)):
         oid = ObjectId(id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid id")
+    
+    try:
+        doc = await db.posts.find_one({"_id": oid})
+    except Exception:
+        raise HTTPException(status_code=404, detail="Post Not Found in DB")
+    
+    cover_asset_key = doc.get("cover_image_key")
+    html_asset_key = doc.get("html_key")
+    froala_key_list = doc.get("froala_image_key_list") or []
 
-    result = await db.posts.delete_one({"_id": oid})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Post not found")
+    if not isinstance(froala_key_list, list):
+        froala_key_list = [froala_key_list]
 
-    return {
+    loop = asyncio.get_running_loop()
+    keys = [k for k in [cover_asset_key, html_asset_key, *froala_key_list] if k]
+    status_meta = []
+    now = datetime.now(timezone.utc)
+
+    if keys:
+        try:
+            delete_results = await asyncio.gather(
+                *(asyncio.to_thread(s3_client.delete_object, Bucket=R2_BUCKET, Key=key) for key in keys),
+                return_exceptions=True
+            )
+            
+            for key, res in zip(keys, delete_results):
+                if isinstance(res, Exception):
+                    status_meta.append({
+                        "status": "error",
+                        "message": "Asset delete failed",
+                        "key": key,
+                        "error": str(res),
+                        "deleted_by": admin["clerk_user_id"],
+                        "deleted_at": now
+                    })
+                else:
+                    status_meta.append({
+                        "status": "success",
+                        "message": "Asset deleted",
+                        "key": key,
+                        "deleted_by": admin["clerk_user_id"],
+                        "deleted_at": now
+                    })
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Error in deleting assets: {str(e)}")
+
+
+
+    try:
+        delete_res = await db.posts.delete_one({"_id": oid})
+    except Exception as e:
+        status_meta.append({
+            "status": "error",
+            "message": "Post DB delete failed",
+            "post_id": id,
+            "error": str(e),
+            "deleted_by": admin["clerk_user_id"],
+            "deleted_at": now
+        })
+        return status_meta
+    
+    status_meta.append({
         "status": "success",
-        "message": f"Post with id {id} permanently deleted",
+        "message": f"Post permanently deleted",
+        "post_id": id,
         "deleted_by": admin["clerk_user_id"],
-        "deleted_at": datetime.now(timezone.utc)
-    }
+        "deleted_at": now
+    })
+
+    return status_meta

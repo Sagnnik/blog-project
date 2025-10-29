@@ -22,10 +22,6 @@ class PostCreate(BaseModel):
     summary: Optional[str] = None
     raw: Optional[str] = None
     body: Optional[str] = None
-    html_id: Optional[str] = None
-    html_link: Optional[str] = None
-    cover_image: Optional[ImageMeta] = None 
-    images: Optional[List[ImageMeta]] = Field(default_factory=list)
     tags: Optional[List[str]] = Field(default_factory=list)
     meta: Optional[dict] = Field(default_factory=dict)
     status: Optional[str] = "draft" # Or published

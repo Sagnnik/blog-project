@@ -16,10 +16,7 @@ from deps import require_admin
 from db import db
 from objectstore import (
     put_object_from_bytes,
-    upload_object,
     generate_presigned_get_url,
-    generate_presigned_put_url,
-    get_object,
     s3_client,
 )
 from utils import compress_image
@@ -29,7 +26,7 @@ if not R2_BUCKET:
     raise RuntimeError("R2_BUCKET environment variable not set")
 
 router = APIRouter()
-PROCESS_POOL = ProcessPoolExecutor(max_workers=2)
+#PROCESS_POOL = ProcessPoolExecutor(max_workers=2)
 
 IMAGE_PREFIX = "images"
 FROALA_PREFIX = "froala"
@@ -44,18 +41,39 @@ def _now():
     return datetime.now(timezone.utc)
 
 async def save_asset_doc(doc: dict, uid=None):
-    asset_id = uid if uid else uuid4().hex
-    doc["asset_id"] = asset_id
-    try:
-        res = await db.assets.insert_one(doc)
-        doc["_id"] = res.inserted_id
-        return doc
-    except DuplicateKeyError:
-        await db.assets.update_one({"asset_id": asset_id}, {"$set": doc})
-        existing = await db.assets.find_one({"asset_id": asset_id}) 
-        return existing
+    if "path" not in doc:
+        raise ValueError("save_asset_doc requires a 'path' field as the unique key")
+
+    now = _now()
+    asset_id = uid or uuid4().hex
+
+    update = {
+        "$set": {
+            "filename": doc.get("filename"),
+            "mime": doc.get("mime"),
+            "size": doc.get("size"),
+            "uploaded_by": doc.get("uploaded_by"),
+            "post_id": doc.get("post_id"),
+            "used_by_post": doc.get("used_by_post", False),
+            "public_link": doc.get("public_link"),
+            "updated_at": now,
+        },
+        "$setOnInsert": {
+            "asset_id": asset_id,
+            "created_at": doc.get("created_at", now),
+            "path": doc["path"],
+        },
+    }
+    await db.assets.update_one({"path": doc["path"]}, update, upsert=True)
+
+    saved = await db.assets.find_one({"path": doc["path"]})
+    if not saved:
+        
+        raise RuntimeError("Upsert succeeded but document could not be fetched")
+
+    return saved
     
-    
+
 # For cover images
 @router.post("/upload-image")
 async def upload_image(
@@ -81,10 +99,13 @@ async def upload_image(
     if orig_size > MAX_SAVE_BYTES:
         loop = asyncio.get_running_loop()
         try: 
-            final_bytes = await loop.run_in_executor(PROCESS_POOL, compress_image, contents, MAX_SAVE_BYTES)
+            with ProcessPoolExecutor(max_workers=2) as exe:
+                final_bytes = await loop.run_in_executor(exe, compress_image, contents, MAX_SAVE_BYTES)
+            
             final_mime = "image/jpeg"
             ext = ".jpg"
-        except Exception:
+        except Exception as e:
+            print(f"Failed to compress image: {str(e)}")
             final_bytes = contents
 
     uid = uuid4().hex
@@ -247,12 +268,13 @@ async def get_asset(request: Request, asset_id: str):
     
     headers = {"Cache-Control": "public, max-age=3600"}
     key = asset.get("path")
+    #print(key)
     loop = asyncio.get_running_loop()
     try:
         res = await loop.run_in_executor(None, lambda: s3_client.get_object(Bucket=R2_BUCKET, Key=key))
         body = res["Body"].read()
         content_type = res.get("ContentType", "application/octet-stream")
-        print(f"R2 response of type: {content_type}")
+        #print(f"R2 response of type: {content_type}")
         if content_type in ALLOWED_HTML_TYPES or key.endswith(".html"):
             html_content = body.decode("utf-8")
             return HTMLResponse(

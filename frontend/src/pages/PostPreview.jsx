@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { useQuery } from '@tanstack/react-query'
 import { Hourglass } from "ldrs/react";
 import 'ldrs/react/Hourglass.css'
@@ -9,12 +9,13 @@ const BASE = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
 export default function PostPreview() {
 
   const { slug } = useParams();
+  const location = useLocation();
+  const { postId, assetId } = location.state || {};
 
   const fetchPostHtml = async ({ signal }) => {
-    if (!slug) throw new error("Missing Slug");
+    if (!postId || !assetId) throw new error("Missing Post Ids");
 
-    const filename = `${encodeURIComponent(slug)}-post.html`;
-    const apiUrl = `${BASE}/api/assets/html/${filename}`;
+    const apiUrl = `${BASE}/api/assets/${assetId}`;
 
     const res = await fetch(apiUrl, {
       method:"GET",
@@ -28,7 +29,7 @@ export default function PostPreview() {
     }
 
     const returnedHtml = await res.text();
-    const baseHref = `${BASE}/api/assets/html/`;
+    const baseHref = `${BASE}/api/assets/${assetId}`;
     return `<base href="${baseHref}">${returnedHtml}`;
   };
 

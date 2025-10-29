@@ -206,7 +206,10 @@ export default function AdminBlogPage() {
 
     function openPost(post) {
         const slug = post.slug
-        navigate(`/article/${slug}`, { state: {postId: post.id}});
+        const assetId = post.html_asset_id
+        navigate(`/article/${slug}`, { 
+            state: {postId: post.id, assetId: assetId}
+        });
     }
 
     function handleEdit(id) {

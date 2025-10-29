@@ -2,10 +2,13 @@ import React from "react";
 
 export default function PublicBlogCard({post, onOpen}) {
     const CARD_HEIGHT_CLASS = "h-42";
+    const BASE = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
+
 
     function getImageUrl() {
-        if(!post?.cover_image) return null;
-        return post.cover_image.public_link;
+        if(!post?.cover_asset_id) return null;
+        const link = `${BASE}/api/assets/${post.cover_asset_id}`;
+        return link
     }
 
   return (
