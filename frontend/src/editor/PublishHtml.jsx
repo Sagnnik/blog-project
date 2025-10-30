@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import SimpleEditor from "./SimpleEditor";
+//import SimpleEditor from "./SimpleEditor";
 import { slugify, buildFullHtml, parseTags } from './utils';
 import { useParams, useNavigate} from "react-router-dom";
 import Button from "../components/Button";
 import Navbar from "../components/Navbar";
 import { useForm } from "react-hook-form";
 import { usePost } from "./usePost";
+import { lazy, Suspense } from "react";
+
+const SimpleEditor = lazy(() => import("./SimpleEditor"));
 
 export default function PublishHtml () {
     const BASE = import.meta.env.VITE_FASTAPI_BASE_URL || "http://localhost:8000";
@@ -379,8 +382,9 @@ export default function PublishHtml () {
                 {postId && <span className="ml-3 text-sm text-gray-400">Post ID: {postId}</span>}
             </div>
             </form>
-
-            <SimpleEditor html={html} setHtml={setHtml} postId={postId}/>
+            <Suspense fallback={<div className="text-sm text-gray-400">Loading editor…</div>}>
+                <SimpleEditor html={html} setHtml={setHtml} postId={postId}/>
+            </Suspense>
 
             <div className="flex justify-start mt-4 gap-3">
                 <Button
