@@ -14,7 +14,7 @@ load_dotenv()
 CLERK_API_KEY = os.getenv("CLERK_SECRET_KEY")
 ADMIN_CLERK_ID = os.getenv("ADMIN_CLERK_ID")
 JWT_KEY = os.getenv("JWT_KEY")
-frontend_origins = "http://127.0.0.1:5173"
+frontend_origins = os.getenv("FRONTEND_BASE", "http://127.0.0.1:5173")
 
 if not CLERK_API_KEY:
     raise RuntimeError("Environment requires CLERK api key")
