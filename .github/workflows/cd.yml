@@ -1,0 +1,22 @@
+name: CD Pipeline
+
+on:
+    workflow_run:
+        workflows: ["CI Pipeline"]
+        types:
+            - completed
+
+jobs:
+    build:
+        runs-on: self-hosted
+
+        steps:
+            - name: Pull docker image
+              run: sudo docker pull sagnnik/blogapp:latest
+            
+            - name: Delete Old Container
+              run: sudo docker rm -f blogapp-container || true
+
+            - name: Run Docker Container
+              run: sudo docker run -d --name blogapp-container --restart=always --env-file /root/secrets/.env -p 8000:8000 sagnnik/blogapp:latest
+

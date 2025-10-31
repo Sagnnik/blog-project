@@ -60,6 +60,24 @@ This is a full-stack blog application with a React frontend and FastAPI backend.
 
 2.  **Backend Setup:**
 
+    *   Pull the docker image
+        ```bash
+        docker pull sagnnik/blogapp:latest
+        ```
+    *   Create a `.env` file and add the following environment variables:
+        ```
+        R2_BUCKET=<your-r2-bucket-name>
+        CLERK_SECRET_KEY=<your-clerk-secret-key>
+        MONGO_URI=<your-mongodb-uri>
+        UPLOAD_DIR=./uploads
+        BACKEND_BASE=http://localhost:8000
+        ```
+    *   Run the docker image
+        ```bash
+        docker run --env-file ./backend/.env -p 8000:8000 blogapp:latest
+        ```
+    OR,
+
     *   Navigate to the `backend` directory:
         ```bash
         cd backend
