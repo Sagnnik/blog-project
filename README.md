@@ -1,42 +1,42 @@
 # Full Stack Blog Project
 
-This is a full-stack blog application with a React frontend and a Python FastAPI backend.
+This is a full-stack blog application with a React frontend and FastAPI backend.
 
 ## Features
 
 *   **Frontend:**
-    *   Built with React and Vite for a fast and modern development experience.
+    *   Built with React and Vite
     *   User authentication powered by Clerk.
-    *   Rich text editor for creating and editing blog posts.
+    *   Froala rich text editor for creating and editing blog posts.
     *   Styling with Tailwind CSS.
 *   **Backend:**
-    *   Built with FastAPI, a modern, fast (high-performance) web framework for building APIs with Python.
-    *   MongoDB for the database, using the `motor` driver for asynchronous operations.
-    *   S3-compatible object storage for assets.
+    *   Built with FastAPI
+    *   MongoDB for the database, using `motor` for asynchronous operations.
+    *   Cloudflare R2 as CDN for assets.
     *   Secure API endpoints with Clerk authentication.
 
 *   **Endpoints:**
 
 *   `app/main.py`: The main application entry point, where the FastAPI app is initialized and configured.
-*   `app/routers/`: Contains the API endpoint definitions, separated into logical groups (posts, public, assets).
+*   `app/routers/`: Contains the API endpoint definitions, separated into: posts, public, assets.
 *   `app/db.py`: Handles the database connection and session management.
 *   `app/models.py`: Defines the data models for the application (e.g., `PostCreate`, `PostUpdate`).
-*   `app/deps.py`: Contains dependency injection functions, such as for requiring admin authentication.
+*   `app/deps.py`: Contains dependency injection function for requiring admin authentication.
 *   `app/objectstore.py`: Manages the connection to the S3-compatible object store.
 
 ## Technologies Used
 
 *   **Frontend:**
     *   React
-    *   Vite
     *   Clerk
     *   React Query
     *   Tailwind CSS
+    *   Froala Rich Text Editor
 *   **Backend:**
-    *   Python
     *   FastAPI
     *   MongoDB (motor)
-    *   Boto3 (for S3)
+    *   Boto3 (for R2)
+    *   Asyncio (for concurrency/parallelism)
     *   Clerk
 
 ## Getting Started
@@ -44,7 +44,7 @@ This is a full-stack blog application with a React frontend and a Python FastAPI
 ### Prerequisites
 
 *   Python 3.12+
-*   Node.js and npm
+*   Node.js
 *   MongoDB instance
 *   S3-compatible object storage bucket
 *   Clerk account
@@ -66,7 +66,7 @@ This is a full-stack blog application with a React frontend and a Python FastAPI
         ```
     *   Install Python dependencies:
         ```bash
-        uv pip install -r requirements.txt
+        uv sync
         ```
     *   Create a `.env` file and add the following environment variables:
         ```

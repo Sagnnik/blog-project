@@ -1,0 +1,26 @@
+name: CI Pipeline
+
+on:
+    push:
+        branches: [ "main" ]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout the code
+              uses: actions/checkout@v3
+
+            - name: Login to DockerHub
+              env:
+                DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+                DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+              run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+              
+            - name: Build the Docker Image
+              run: docker build -t blogapp ./backend/
+
+            - name: Push to DockerHub
+              run: docker push sagnnik/blogapp:tagname
+

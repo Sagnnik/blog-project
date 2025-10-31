@@ -9,11 +9,11 @@ COPY uv.lock pyproject.toml ./
 
 RUN uv sync --frozen --no-dev
 
-COPY app/ /app/app/
+COPY app/ /app/
 
 # Add app to Python path (safe expansion)
-ENV PYTHONPATH="/app/app:${PYTHONPATH:-}"
+ENV PYTHONPATH="/app:${PYTHONPATH:-}"
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
